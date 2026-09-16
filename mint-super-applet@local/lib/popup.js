@@ -116,6 +116,31 @@ var Dashboard = class Dashboard {
         return 18;
     }
 
+    _drawPanelHeaderMulti(ctx, area, x, y, w, title, parts) {
+        this._drawText(area, ctx, title.toUpperCase(), x + 10, y + 3, Draw.PALETTE.onSurfaceVariant,
+            { size: 8.5, weight: 'bold' });
+        if (!parts || !parts.length) return 18;
+        // filter out empty parts
+        parts = parts.filter(p => p && p.text);
+        if (!parts.length) return 18;
+        let gapPx = 10;
+        let widths = [];
+        let totalW = 0;
+        for (let i = 0; i < parts.length; i++) {
+            let [pw] = this._measureText(area, parts[i].text, { size: 10, weight: 'bold' });
+            widths.push(pw);
+            totalW += pw;
+            if (i > 0) totalW += gapPx;
+        }
+        let curX = x + w - 10 - totalW;
+        for (let i = 0; i < parts.length; i++) {
+            this._drawText(area, ctx, parts[i].text, curX, y + 2, parts[i].color || Draw.PALETTE.onSurface,
+                { size: 10, weight: 'bold' });
+            curX += widths[i] + gapPx;
+        }
+        return 18;
+    }
+
     _drawCpuPanel(ctx, area, x, y, w, h) {
         let cpu = this.applet.providers.cpu;
         Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surfaceContainer, 1);
@@ -253,7 +278,18 @@ var Dashboard = class Dashboard {
         Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
 
         let pad = 10;
-        let headerH = this._drawPanelHeader(ctx, area, x, y, w, title, headerRight, headerColor);
+        let headerH;
+        // headerRight may be a string (legacy) or an array of {text,color} parts
+        // when it's an array, the call shifts: headerColor holds series
+        if (Array.isArray(headerRight)) {
+            headerH = this._drawPanelHeaderMulti(ctx, area, x, y, w, title, headerRight);
+            // shift args
+            labelColor = labels;
+            labels = series;
+            series = headerColor;
+        } else {
+            headerH = this._drawPanelHeader(ctx, area, x, y, w, title, headerRight, headerColor);
+        }
         let top = y + headerH + 2;
         let availW = w - 2 * pad;
         let availH = h - headerH - pad - 4;
@@ -269,15 +305,19 @@ var Dashboard = class Dashboard {
 
     _drawNetPanel(ctx, area, x, y, w, h) {
         let net = this.applet.providers.net;
-        let right = '▼ ' + Draw.formatBytesShort(net.last.down, true) +
-                    '   ▲ ' + Draw.formatBytesShort(net.last.up, true);
+        let downText = '▼ ' + Draw.formatBytesShort(net.last.down, true);
+        let upText = '▲ ' + Draw.formatBytesShort(net.last.up, true);
+        let headerParts = [
+            { text: downText, color: Draw.PALETTE.tertiary },
+            { text: upText, color: Draw.PALETTE.cyan }
+        ];
         let down = { draw: (c, gx, gy, gw, gh) =>
             Draw.drawSparkline(c, net.downHistory, gx, gy, gw, gh, Draw.PALETTE.tertiary,
                 { lineWidth: 1.5, fillAlpha: 0.15 }) };
         let up = { draw: (c, gx, gy, gw, gh) =>
             Draw.drawSparkline(c, net.upHistory, gx, gy, gw, gh, Draw.PALETTE.cyan,
                 { lineWidth: 1.5, fillAlpha: 0.15 }) };
-        this._drawGraphPanel(ctx, area, x, y, w, h, 'NETWORK', right, Draw.PALETTE.tertiary,
+        this._drawGraphPanel(ctx, area, x, y, w, h, 'NETWORK', headerParts,
             [down, up],
             ['▼ ' + Draw.formatBytes(net.last.down, true), '▲ ' + Draw.formatBytes(net.last.up, true)],
             [Draw.PALETTE.tertiary, Draw.PALETTE.cyan]);
@@ -285,15 +325,19 @@ var Dashboard = class Dashboard {
 
     _drawDiskPanel(ctx, area, x, y, w, h) {
         let disk = this.applet.providers.disk;
-        let right = 'R ' + Draw.formatBytesShort(disk.last.read, true) +
-                    '   W ' + Draw.formatBytesShort(disk.last.write, true);
+        let readText = 'R ' + Draw.formatBytesShort(disk.last.read, true);
+        let writeText = 'W ' + Draw.formatBytesShort(disk.last.write, true);
+        let headerParts = [
+            { text: readText, color: Draw.PALETTE.primary },
+            { text: writeText, color: Draw.PALETTE.secondary }
+        ];
         let rd = { draw: (c, gx, gy, gw, gh) =>
             Draw.drawSparkline(c, disk.readHistory, gx, gy, gw, gh, Draw.PALETTE.primary,
                 { lineWidth: 1.5, fillAlpha: 0.15 }) };
         let wr = { draw: (c, gx, gy, gw, gh) =>
             Draw.drawSparkline(c, disk.writeHistory, gx, gy, gw, gh, Draw.PALETTE.secondary,
                 { lineWidth: 1.5, fillAlpha: 0.15 }) };
-        this._drawGraphPanel(ctx, area, x, y, w, h, 'DISK', right, Draw.PALETTE.primary,
+        this._drawGraphPanel(ctx, area, x, y, w, h, 'DISK', headerParts,
             [rd, wr],
             ['R ' + Draw.formatBytes(disk.last.read, true), 'W ' + Draw.formatBytes(disk.last.write, true)],
             [Draw.PALETTE.primary, Draw.PALETTE.secondary]);

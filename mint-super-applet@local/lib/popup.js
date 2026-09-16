@@ -203,7 +203,8 @@ var Dashboard = class Dashboard {
     }
 
     _drawMemPanel(ctx, area, x, y, w, h) {
-        let d = this.applet.providers.mem.data;
+        let prov = this.applet.providers.mem;
+        let d = prov.data;
         if (!d || !d.total) return;
         Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surfaceContainer, 1);
         Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
@@ -212,63 +213,109 @@ var Dashboard = class Dashboard {
         let headerH = this._drawPanelHeader(ctx, area, x, y, w, 'MEMORY',
             Draw.formatBytes(d.total), Draw.PALETTE.secondary);
 
-        let availW = w - 2 * pad;
-        let by = y + headerH + 4;
+        let gx = x + pad;
+        let gy = y + headerH + 4;
+        let gw = w - 2 * pad;
+        let gh = h - headerH - pad - 4;
+        if (gw < 10 || gh < 10) return;
 
+        // stacked graph over time
         let freeVal = Math.max(0, d.total - d.used - d.cache - d.buffers);
-        let segs = [
-            { pct: d.used / d.total, hex: Draw.PALETTE.primaryContainer },
-            { pct: d.cache / d.total, hex: Draw.PALETTE.cyan },
-            { pct: d.buffers / d.total, hex: Draw.PALETTE.secondaryContainer },
-            { pct: freeVal / d.total, hex: Draw.PALETTE.surfaceContainerHst }
+        // histories are ordered bottom->top: used, cache, buffers, free
+        // use user-configurable palette entries so graph follows applet settings
+        let colors = [
+            Draw.PALETTE.primary,
+            Draw.PALETTE.cyan,
+            Draw.PALETTE.secondary,
+            Draw.PALETTE.surfaceContainerHigh
         ];
-        ctx.save();
-        Draw.roundedRect(ctx, x + pad, by, availW, 16, 8);
-        ctx.clip();
-        let ax = x + pad;
-        for (let sg of segs) {
-            let sw = sg.pct * availW;
-            if (sw < 0.5) { ax += sw; continue; }
-            ctx.rectangle(ax, by, sw, 16);
-            Draw.setSourceHex(ctx, sg.hex, 1);
-            ctx.fill();
-            ax += sw;
-        }
-        ctx.restore();
+        let histUsed = prov.usedHistory && prov.usedHistory.length ? prov.usedHistory : [d.used];
+        let histCache = prov.cacheHistory && prov.cacheHistory.length ? prov.cacheHistory : [d.cache];
+        let histBuffers = prov.buffersHistory && prov.buffersHistory.length ? prov.buffersHistory : [d.buffers];
+        let histFree = prov.freeHistory && prov.freeHistory.length ? prov.freeHistory : [freeVal];
+        // ensure all series have same conceptual length as max history
+        Draw.drawStackedGraph(ctx,
+            [histUsed, histCache, histBuffers, histFree],
+            colors,
+            gx, gy, gw, gh,
+            { max: d.total, clipRadius: 8, grid: true, fillAlpha: 0.28, borderAlpha: 0.95, borderWidth: 1.2 });
 
-        let ly = by + 16 + 10;
-        let lh = 14;
+        // overlay: all written info on top of graph
+        // draw subtle scrim behind text for legibility
+        // keep legend colors in sync with stacked graph (user palette)
+        // free uses surfaceContainerHigh (user's surface-high) for the graph,
+        // but value text stays readable on dark background
         let rows = [
-            { label: 'used', value: d.used, hex: Draw.PALETTE.primaryContainer },
+            { label: 'used', value: d.used, hex: Draw.PALETTE.primary },
             { label: 'cache', value: d.cache, hex: Draw.PALETTE.cyan },
             { label: 'buffers', value: d.buffers, hex: Draw.PALETTE.secondary },
-            { label: 'free', value: freeVal, hex: Draw.PALETTE.outline }
+            { label: 'free', value: freeVal, hex: Draw.PALETTE.surfaceContainerHigh, textHex: Draw.PALETTE.onSurfaceVariant }
         ];
+        // background scrim for legend (top-left block) — auto-sized to content to avoid empty middle
+        let lh = 11;
+        // measure widest row to make legend only as wide as needed
+        let dotR = 3;
+        let legendPadH = 6; // left+right padding inside scrim
+        let middleGap = 14;
+        let maxContentW = 0;
+        for (let rr of rows) {
+            let [lw] = this._measureText(area, rr.label, { size: 7.5 });
+            let [vw] = this._measureText(area, Draw.formatBytes(rr.value), { size: 7.5, weight: 'bold' });
+            // dot (2*dotR) + gap dot->label (4) + lw + middleGap + vw
+            let need = dotR * 2 + 4 + lw + middleGap + vw;
+            if (need > maxContentW) maxContentW = need;
+        }
+        // scrim width = content + horizontal padding, clamped to graph width
+        let legendW = Math.ceil(maxContentW + legendPadH * 2);
+        let maxAllowedW = gw - 8; // keep 4px margin each side
+        if (legendW > maxAllowedW) legendW = maxAllowedW;
+        if (legendW < 72) legendW = 72;
+        let legendH = rows.length * lh + 6; // tighter vertical padding
+        // only draw scrim if graph is large enough
+        if (gh > legendH + 22) {
+            Draw.fillRoundRect(ctx, gx + 4, gy + 4, legendW, legendH, 6, Draw.PALETTE.surfaceContainer, 0.78);
+            Draw.strokeRoundRect(ctx, gx + 4, gy + 4, legendW, legendH, 6, Draw.PALETTE.outlineVariant, 0.22, 1);
+        }
         for (let i = 0; i < rows.length; i++) {
             let r = rows[i];
-            let lyy = ly + i * lh;
-            this._drawText(area, ctx, r.label, x + pad, lyy, Draw.PALETTE.onSurfaceVariant, { size: 8 });
-            this._drawText(area, ctx, Draw.formatBytes(r.value), x + w - pad, lyy, r.hex,
-                { size: 8, align: 'right' });
+            let lyy = gy + 6 + i * lh;
+            // colored dot (matches graph segment color)
+            let dotX = gx + 10;
+            let dotY = lyy + 5;
+            ctx.newPath();
+            ctx.arc(dotX, dotY, dotR, 0, 2 * Math.PI);
+            Draw.setSourceHex(ctx, r.hex, 1);
+            ctx.fill();
+            this._drawText(area, ctx, r.label, dotX + dotR + 4, lyy, Draw.PALETTE.onSurfaceVariant, { size: 7.5 });
+            let valueColor = r.textHex || r.hex;
+            this._drawText(area, ctx, Draw.formatBytes(r.value), gx + 4 + legendW - 6, lyy, valueColor,
+                { size: 7.5, weight: 'bold', align: 'right' });
         }
 
+        // swap overlay at bottom of graph (if present)
         if (d.swapTotal > 0) {
-            let swy = ly + rows.length * lh + 6;
-            this._drawText(area, ctx, 'swap', x + pad, swy, Draw.PALETTE.onSurfaceVariant, { size: 8 });
-            let swBarW = availW - 38 - 8;
-            let bx = x + pad + 38;
-            Draw.fillRoundRect(ctx, bx, swy + 2, swBarW, 8, 4, Draw.PALETTE.surfaceContainerHigh, 1);
+            let swY = gy + gh - 14;
+            let swBarH = 8;
+            let swLabelW = 30;
+            // scrim for swap strip
+            Draw.fillRoundRect(ctx, gx + 4, swY - 3, gw - 8, swBarH + 6, 4, Draw.PALETTE.surfaceContainer, 0.78);
+            Draw.strokeRoundRect(ctx, gx + 4, swY - 3, gw - 8, swBarH + 6, 4, Draw.PALETTE.outlineVariant, 0.22, 1);
+            this._drawText(area, ctx, 'swap', gx + 8, swY, Draw.PALETTE.onSurfaceVariant, { size: 7 });
+            let bx = gx + 8 + swLabelW;
+            let swBarW = gw - 8 - swLabelW - 36 - 10;
+            if (swBarW < 10) swBarW = 10;
+            Draw.fillRoundRect(ctx, bx, swY + 1, swBarW, swBarH, 4, Draw.PALETTE.surfaceContainerHigh, 1);
             if (d.swapPct > 0) {
                 ctx.save();
-                Draw.roundedRect(ctx, bx, swy + 2, swBarW, 8, 4);
+                Draw.roundedRect(ctx, bx, swY + 1, swBarW, swBarH, 4);
                 ctx.clip();
-                ctx.rectangle(bx, swy + 2, d.swapPct / 100 * swBarW, 8);
+                ctx.rectangle(bx, swY + 1, d.swapPct / 100 * swBarW, swBarH);
                 Draw.setSourceHex(ctx, Draw.PALETTE.tertiary, 1);
                 ctx.fill();
                 ctx.restore();
             }
-            this._drawText(area, ctx, Draw.formatBytes(d.swapUsed), bx + swBarW + 6, swy,
-                Draw.PALETTE.tertiary, { size: 8 });
+            this._drawText(area, ctx, Draw.formatBytes(d.swapUsed), bx + swBarW + 6, swY,
+                Draw.PALETTE.tertiary, { size: 7, align: 'left' });
         }
     }
 

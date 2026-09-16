@@ -153,6 +153,135 @@ function drawSparkline(ctx, values, x, y, w, h, hex, opts) {
     ctx.restore();
 }
 
+function drawStackedGraph(ctx, seriesList, colors, x, y, w, h, opts) {
+    opts = opts || {};
+    if (!seriesList || !seriesList.length || w < 4 || h < 4) return;
+    let n = 0;
+    for (let i = 0; i < seriesList.length; i++) {
+        if (seriesList[i] && seriesList[i].length > n) n = seriesList[i].length;
+    }
+    if (n === 0) return;
+    // normalize lengths: pad shorter series with 0 or repeat last? use 0
+    // also need at least 2 points for area; if n==1 duplicate the single point
+    let normalized = [];
+    for (let i = 0; i < seriesList.length; i++) {
+        let arr = seriesList[i] || [];
+        let out = new Array(n);
+        for (let j = 0; j < n; j++) {
+            if (j < arr.length) out[j] = arr[j];
+            else out[j] = arr.length ? arr[arr.length - 1] : 0;
+            if (!isFinite(out[j]) || out[j] < 0) out[j] = 0;
+        }
+        normalized.push(out);
+    }
+    let m = normalized.length;
+    // if only one point, fake a second point to allow area draw
+    let drawN = n;
+    let step = 0;
+    if (n < 2) {
+        drawN = 2;
+        step = w;
+        // extend arrays to length 2 with duplicate value
+        for (let i = 0; i < m; i++) normalized[i] = [normalized[i][0], normalized[i][0]];
+    } else {
+        step = w / (n - 1);
+    }
+
+    let max = opts.max;
+    if (max === undefined) {
+        max = 1;
+        for (let j = 0; j < drawN; j++) {
+            let sum = 0;
+            for (let i = 0; i < m; i++) sum += normalized[i][j];
+            if (sum > max) max = sum;
+        }
+    }
+    if (max <= 0) max = 1;
+
+    // precompute cumulative fractions per time point
+    let cum = [];
+    for (let i = 0; i < m; i++) cum.push(new Array(drawN));
+    for (let j = 0; j < drawN; j++) {
+        let running = 0;
+        for (let i = 0; i < m; i++) {
+            running += normalized[i][j] / max;
+            if (running < 0) running = 0;
+            if (running > 1) running = 1;
+            cum[i][j] = running;
+        }
+    }
+
+    ctx.save();
+    roundedRect(ctx, x, y, w, h, opts.clipRadius !== undefined ? opts.clipRadius : 8);
+    ctx.clip();
+
+    // draw from bottom layer (index 0) upwards; bottom layer's bottom is y+h
+    // fills are translucent, borders (top edge of each stack + topmost) are opaque
+    let fillAlpha = opts.fillAlpha !== undefined ? opts.fillAlpha : 0.28;
+    let borderAlpha = opts.borderAlpha !== undefined ? opts.borderAlpha : 1;
+    let borderWidth = opts.borderWidth !== undefined ? opts.borderWidth : 1.1;
+    for (let i = 0; i < m; i++) {
+        let top = cum[i];
+        let bottom = i === 0 ? null : cum[i - 1];
+        ctx.newPath();
+        // top edge left->right
+        for (let j = 0; j < drawN; j++) {
+            let px = x + j * step;
+            let py = y + h - top[j] * h;
+            if (j === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        // bottom edge right->left
+        for (let j = drawN - 1; j >= 0; j--) {
+            let px = x + j * step;
+            let py;
+            if (bottom) py = y + h - bottom[j] * h;
+            else py = y + h;
+            ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        let hex = colors[i % colors.length];
+        setSourceHex(ctx, hex, fillAlpha);
+        ctx.fill();
+    }
+    // draw borders on top of each stack (including topmost) with opaque stroke
+    if (opts.stroke !== false) {
+        for (let i = 0; i < m; i++) {
+            let top = cum[i];
+            ctx.newPath();
+            for (let j = 0; j < drawN; j++) {
+                let px = x + j * step;
+                let py = y + h - top[j] * h;
+                if (j === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            let hex = colors[i % colors.length];
+            setSourceHex(ctx, hex, borderAlpha);
+            ctx.setLineWidth(borderWidth);
+            ctx.setLineJoin(1);
+            ctx.setLineCap(1);
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
+
+    // optional grid overlay
+    if (opts.grid) {
+        ctx.save();
+        ctx.setLineWidth(0.6);
+        setSourceHex(ctx, PALETTE.outlineVariant, 0.18);
+        // horizontal lines at 25/50/75%
+        for (let f of [0.25, 0.5, 0.75]) {
+            let py = y + h - f * h;
+            ctx.newPath();
+            ctx.moveTo(x, py);
+            ctx.lineTo(x + w, py);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
 function drawRing(ctx, cx, cy, outerR, thickness, fraction, hex, trackHex) {
     let f = Math.max(0, Math.min(1, fraction));
     let innerR = Math.max(0, outerR - thickness);

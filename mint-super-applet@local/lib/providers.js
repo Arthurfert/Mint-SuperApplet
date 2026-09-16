@@ -114,8 +114,13 @@ var CPUProvider = class CPUProvider {
 };
 
 var MemProvider = class MemProvider {
-    constructor() {
+    constructor(historyLength) {
+        this.historyLength = historyLength || 60;
         this._last = null;
+        this._usedHistory = [];
+        this._cacheHistory = [];
+        this._buffersHistory = [];
+        this._freeHistory = [];
         this.tick();
     }
 
@@ -167,10 +172,41 @@ var MemProvider = class MemProvider {
             usedPct: total > 0 ? clamp(used / total * 100, 0, 100) : 0,
             swapPct: swapTotal > 0 ? clamp(swapUsed / swapTotal * 100, 0, 100) : 0
         };
+
+        // push to history for stack graph (store raw bytes; free for graph is derived)
+        let freeVal = Math.max(0, total - used - cache - buffers);
+        this._usedHistory.push(used);
+        this._cacheHistory.push(cache);
+        this._buffersHistory.push(buffers);
+        this._freeHistory.push(freeVal);
+        if (this._usedHistory.length > this.historyLength) this._usedHistory.shift();
+        if (this._cacheHistory.length > this.historyLength) this._cacheHistory.shift();
+        if (this._buffersHistory.length > this.historyLength) this._buffersHistory.shift();
+        if (this._freeHistory.length > this.historyLength) this._freeHistory.shift();
     }
 
     get data() {
         return this._last;
+    }
+
+    get usedHistory() {
+        return this._usedHistory;
+    }
+
+    get cacheHistory() {
+        return this._cacheHistory;
+    }
+
+    get buffersHistory() {
+        return this._buffersHistory;
+    }
+
+    get freeHistory() {
+        return this._freeHistory;
+    }
+
+    get stackHistories() {
+        return [this._usedHistory, this._cacheHistory, this._buffersHistory, this._freeHistory];
     }
 };
 

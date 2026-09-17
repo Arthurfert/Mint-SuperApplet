@@ -26,6 +26,7 @@ class MintSuperApplet extends Applet.Applet {
         this.settings.bindProperty(Settings.BindingDirection.IN, 'font-size', 'fontSize', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-cpu', 'showCpu', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-memory', 'showMemory', this._onSettingsChanged, null);
+        this.settings.bindProperty(Settings.BindingDirection.IN, 'memory-include-cache-buffers', 'memoryIncludeCacheBuffers', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-network', 'showNetwork', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-disk', 'showDisk', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-temps', 'showTemps', this._onSettingsChanged, null);

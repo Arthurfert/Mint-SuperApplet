@@ -221,36 +221,50 @@ var Dashboard = class Dashboard {
 
         // stacked graph over time
         let freeVal = Math.max(0, d.total - d.used - d.cache - d.buffers);
+        let includeCache = this.applet.memoryIncludeCacheBuffers !== false; // default true
+        let freeInclusive = Math.max(0, d.total - d.used);
         // histories are ordered bottom->top: used, cache, buffers, free
         // use user-configurable palette entries so graph follows applet settings
-        let colors = [
-            Draw.PALETTE.primary,
-            Draw.PALETTE.cyan,
-            Draw.PALETTE.secondary,
-            Draw.PALETTE.surfaceContainerHigh
-        ];
-        let histUsed = prov.usedHistory && prov.usedHistory.length ? prov.usedHistory : [d.used];
-        let histCache = prov.cacheHistory && prov.cacheHistory.length ? prov.cacheHistory : [d.cache];
-        let histBuffers = prov.buffersHistory && prov.buffersHistory.length ? prov.buffersHistory : [d.buffers];
-        let histFree = prov.freeHistory && prov.freeHistory.length ? prov.freeHistory : [freeVal];
-        // ensure all series have same conceptual length as max history
+        let colors, histSeries, rows;
+        if (includeCache) {
+            colors = [
+                Draw.PALETTE.primary,
+                Draw.PALETTE.cyan,
+                Draw.PALETTE.secondary,
+                Draw.PALETTE.surfaceContainerHigh
+            ];
+            let histUsed = prov.usedHistory && prov.usedHistory.length ? prov.usedHistory : [d.used];
+            let histCache = prov.cacheHistory && prov.cacheHistory.length ? prov.cacheHistory : [d.cache];
+            let histBuffers = prov.buffersHistory && prov.buffersHistory.length ? prov.buffersHistory : [d.buffers];
+            let histFree = prov.freeHistory && prov.freeHistory.length ? prov.freeHistory : [freeVal];
+            histSeries = [histUsed, histCache, histBuffers, histFree];
+            rows = [
+                { label: 'used', value: d.used, hex: Draw.PALETTE.primary },
+                { label: 'cache', value: d.cache, hex: Draw.PALETTE.cyan },
+                { label: 'buffers', value: d.buffers, hex: Draw.PALETTE.secondary },
+                { label: 'free', value: freeVal, hex: Draw.PALETTE.surfaceContainerHigh, textHex: Draw.PALETTE.onSurfaceVariant }
+            ];
+        } else {
+            colors = [
+                Draw.PALETTE.primary,
+                Draw.PALETTE.surfaceContainerHigh
+            ];
+            let histUsed = prov.usedHistory && prov.usedHistory.length ? prov.usedHistory : [d.used];
+            // free inclusive = total - used (covers cache+buffers+free)
+            let histFreeInc = histUsed.map(v => Math.max(0, d.total - v));
+            // ensure at least one point
+            if (!histFreeInc.length) histFreeInc = [freeInclusive];
+            histSeries = [histUsed, histFreeInc];
+            rows = [
+                { label: 'used', value: d.used, hex: Draw.PALETTE.primary },
+                { label: 'free', value: freeInclusive, hex: Draw.PALETTE.surfaceContainerHigh, textHex: Draw.PALETTE.onSurfaceVariant }
+            ];
+        }
         Draw.drawStackedGraph(ctx,
-            [histUsed, histCache, histBuffers, histFree],
+            histSeries,
             colors,
             gx, gy, gw, gh,
             { max: d.total, clipRadius: 8, grid: true, fillAlpha: 0.28, borderAlpha: 0.95, borderWidth: 1.2 });
-
-        // overlay: all written info on top of graph
-        // draw subtle scrim behind text for legibility
-        // keep legend colors in sync with stacked graph (user palette)
-        // free uses surfaceContainerHigh (user's surface-high) for the graph,
-        // but value text stays readable on dark background
-        let rows = [
-            { label: 'used', value: d.used, hex: Draw.PALETTE.primary },
-            { label: 'cache', value: d.cache, hex: Draw.PALETTE.cyan },
-            { label: 'buffers', value: d.buffers, hex: Draw.PALETTE.secondary },
-            { label: 'free', value: freeVal, hex: Draw.PALETTE.surfaceContainerHigh, textHex: Draw.PALETTE.onSurfaceVariant }
-        ];
         // background scrim for legend (top-left block) — auto-sized to content to avoid empty middle
         let lh = 11;
         // measure widest row to make legend only as wide as needed

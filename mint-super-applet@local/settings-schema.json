@@ -53,6 +53,11 @@
         "default": true,
         "description": "Show memory panel"
     },
+    "memory-include-cache-buffers": {
+        "type": "switch",
+        "default": true,
+        "description": "Include cache and buffers in memory graph"
+    },
     "show-network": {
         "type": "switch",
         "default": true,

@@ -1,12 +1,23 @@
 # Mint SuperApplet
 
-A custom Cinnamon applet: a system monitor (CPU, memory, network, disk I/O, temperatures) with modern styling.
+A custom Cinnamon applet with modern styling.
 
-## Next features
+Right now it is **just a system monitor** featuring :
+- **CPU usage** (global and pre-core)
+- **Memory** (usage graph)
+- **Network** (download/upload graphs)
+- **Disk usage** (read/write graphs)
+- **Temperatures** (CPU, Graphic card)
 
-- Battery popup window with percentage, time remaining and battery life
+It will then improve gradually, with :
+
+- PC's health popup window (battery life etc...)
 - Weather forecast
 - Media player
+
+All in one "**Super-Applet**" !
+
+*This work has been inspired by some Arch Linux dotfiles like [Caelestia](https://github.com/caelestia-dots/caelestia).*
 
 ## Install
 
@@ -20,10 +31,9 @@ make all
 make uninstall
 ```
 
-## Reload / syntax check
+## Syntax check
 
 ```bash
-make reload   # equivalent to Alt+F2 then r
 make check    # JS syntax check
 ```
 

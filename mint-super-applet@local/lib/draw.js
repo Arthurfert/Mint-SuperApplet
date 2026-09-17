@@ -2,21 +2,21 @@ const Pango = imports.gi.Pango;
 const PangoCairo = imports.gi.PangoCairo;
 
 var PALETTE = {
+    // harmonized with settings: color-background/surface/surface-high/text/text-variant/primary/secondary/tertiary/cyan/error
     background:           '#12111E',
-    onBackground:         '#ece6ff',
-    surfaceContainerLow:  '#181622',
-    surfaceContainer:     '#1f1d30',
-    surfaceContainerHigh: '#2e2c45',
-    surfaceContainerHst:  '#3b3854',
-    onSurface:            '#ece6ff',
-    onSurfaceVariant:     '#c9c0e8',
+    surface:              '#1f1d30',
+    surfaceHigh:          '#2e2c45',
+    surfaceLow:           '#181622',
+    surfaceHighest:       '#3b3854',
+    text:                 '#ece6ff',
+    textVariant:          '#c9c0e8',
     outline:              '#8f8aa0',
     outlineVariant:       '#3e3b54',
     primary:              '#8b5cf6',
     onPrimary:            '#ffffff',
     primaryContainer:     '#7c3aed',
-    secondary:            '#e879f9',
-    secondaryContainer:   '#c084fc',
+    secondary:            '#4ac446',
+    secondaryContainer:   '#72fb61',
     tertiary:             '#fb923c',
     tertiaryContainer:    '#f97316',
     error:                '#ff5757',
@@ -24,6 +24,14 @@ var PALETTE = {
     purple:               '#a78bfa',
     success:              '#34d399',
 };
+// legacy aliases for backward compatibility (old palette names)
+PALETTE.surfaceContainer = PALETTE.surface;
+PALETTE.surfaceContainerHigh = PALETTE.surfaceHigh;
+PALETTE.surfaceContainerLow = PALETTE.surfaceLow;
+PALETTE.surfaceContainerHst = PALETTE.surfaceHighest;
+PALETTE.onSurface = PALETTE.text;
+PALETTE.onSurfaceVariant = PALETTE.textVariant;
+PALETTE.onBackground = PALETTE.text;
 
 function hexToRgba(hex, alpha) {
     if (alpha === undefined) alpha = 1;

@@ -129,10 +129,10 @@ class MintSuperApplet extends Applet.Applet {
         let p = Draw.PALETTE;
         let overrides = {
             background: this.colorBackground,
-            surfaceContainer: this.colorSurface,
-            surfaceContainerHigh: this.colorSurfaceHigh,
-            onSurface: this.colorText,
-            onSurfaceVariant: this.colorTextVariant,
+            surface: this.colorSurface,
+            surfaceHigh: this.colorSurfaceHigh,
+            text: this.colorText,
+            textVariant: this.colorTextVariant,
             primary: this.colorPrimary,
             secondary: this.colorSecondary,
             tertiary: this.colorTertiary,
@@ -141,7 +141,14 @@ class MintSuperApplet extends Applet.Applet {
         };
         for (let k in overrides) {
             let h = Draw.normalizeHex(overrides[k]);
-            if (h) p[k] = h;
+            if (h) {
+                p[k] = h;
+                // keep legacy aliases in sync
+                if (k === 'surface') p.surfaceContainer = h;
+                if (k === 'surfaceHigh') p.surfaceContainerHigh = h;
+                if (k === 'text') { p.onSurface = h; p.onBackground = h; }
+                if (k === 'textVariant') p.onSurfaceVariant = h;
+            }
         }
         this._repaintAll();
     }
@@ -200,11 +207,11 @@ class MintSuperApplet extends Applet.Applet {
         let d = this._ringDiameter();
         let thk = this._ringThickness(d);
         let gap = 6;
-        let track = Draw.PALETTE.surfaceContainerHigh;
+        let track = Draw.PALETTE.surfaceHigh;
         let shown = (this.panelShowCpu ? 1 : 0) + (this.panelShowMemory ? 1 : 0);
 
         if (shown === 0) {
-            Draw.setSourceHex(ctx, Draw.PALETTE.onSurfaceVariant, 0.5);
+            Draw.setSourceHex(ctx, Draw.PALETTE.textVariant, 0.5);
             ctx.newPath();
             ctx.arc(W / 2, H / 2, 2, 0, 2 * Math.PI);
             ctx.fill();
@@ -239,7 +246,7 @@ class MintSuperApplet extends Applet.Applet {
         Draw.drawRing(ctx, cx, cy, r, thk, fraction, color, track);
         let fs = Math.max(6, Math.round(d * 0.3));
         this._drawText(area, ctx, Math.round(fraction * 100) + '%', cx, cy - Math.round(fs * 0.62),
-            Draw.PALETTE.onSurface, { size: fs, align: 'center', font: 'Sans' });
+            Draw.PALETTE.text, { size: fs, align: 'center', font: 'Sans' });
     }
 
     _drawText(area, ctx, text, x, y, hex, opts) {

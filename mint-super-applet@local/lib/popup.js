@@ -91,13 +91,13 @@ var Dashboard = class Dashboard {
 
     _drawHeader(ctx, area, W, m, headerH) {
         let host = GLib.get_host_name();
-        this._drawText(area, ctx, '●  ' + host, m, m + 5, Draw.PALETTE.onSurface,
+        this._drawText(area, ctx, '●  ' + host, m, m + 5, Draw.PALETTE.text,
             { size: 11, weight: 'bold', font: 'Sans' });
 
         let up = Draw.formatUptime(this._uptimeSeconds());
         let right = up ? 'Uptime : ' + up : '';
         if (right)
-            this._drawText(area, ctx, right, W - m, m + 7, Draw.PALETTE.onSurfaceVariant,
+            this._drawText(area, ctx, right, W - m, m + 7, Draw.PALETTE.textVariant,
                 { size: 9.5, align: 'right' });
     }
 
@@ -108,16 +108,16 @@ var Dashboard = class Dashboard {
     }
 
     _drawPanelHeader(ctx, area, x, y, w, title, rightText, rightColor) {
-        this._drawText(area, ctx, title.toUpperCase(), x + 10, y + 3, Draw.PALETTE.onSurfaceVariant,
+        this._drawText(area, ctx, title.toUpperCase(), x + 10, y + 3, Draw.PALETTE.textVariant,
             { size: 8.5, weight: 'bold' });
         if (rightText !== undefined && rightText !== null)
-            this._drawText(area, ctx, rightText, x + w - 10, y + 2, rightColor || Draw.PALETTE.onSurface,
+            this._drawText(area, ctx, rightText, x + w - 10, y + 2, rightColor || Draw.PALETTE.text,
                 { size: 10, weight: 'bold', align: 'right' });
         return 18;
     }
 
     _drawPanelHeaderMulti(ctx, area, x, y, w, title, parts) {
-        this._drawText(area, ctx, title.toUpperCase(), x + 10, y + 3, Draw.PALETTE.onSurfaceVariant,
+        this._drawText(area, ctx, title.toUpperCase(), x + 10, y + 3, Draw.PALETTE.textVariant,
             { size: 8.5, weight: 'bold' });
         if (!parts || !parts.length) return 18;
         // filter out empty parts
@@ -134,7 +134,7 @@ var Dashboard = class Dashboard {
         }
         let curX = x + w - 10 - totalW;
         for (let i = 0; i < parts.length; i++) {
-            this._drawText(area, ctx, parts[i].text, curX, y + 2, parts[i].color || Draw.PALETTE.onSurface,
+            this._drawText(area, ctx, parts[i].text, curX, y + 2, parts[i].color || Draw.PALETTE.text,
                 { size: 10, weight: 'bold' });
             curX += widths[i] + gapPx;
         }
@@ -143,7 +143,7 @@ var Dashboard = class Dashboard {
 
     _drawCpuPanel(ctx, area, x, y, w, h) {
         let cpu = this.applet.providers.cpu;
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surfaceContainer, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
         Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
 
         let pad = 10;
@@ -158,11 +158,11 @@ var Dashboard = class Dashboard {
         let cy = top + Math.round(availH / 2) - 2;
 
         Draw.drawRing(ctx, cx, cy, ringR, ringTh, cpu.lastTotal / 100,
-            Draw.PALETTE.primary, Draw.PALETTE.surfaceContainerHigh);
+            Draw.PALETTE.primary, Draw.PALETTE.surfaceHigh);
         this._drawText(area, ctx, Math.round(cpu.lastTotal) + '%', cx, cy - 8,
-            Draw.PALETTE.onSurface, { size: 14, weight: 'bold', align: 'center' });
+            Draw.PALETTE.text, { size: 14, weight: 'bold', align: 'center' });
         this._drawText(area, ctx, 'TOTAL', cx, cy + 5,
-            Draw.PALETTE.onSurfaceVariant, { size: 7, align: 'center' });
+            Draw.PALETTE.textVariant, { size: 7, align: 'center' });
 
         let sx = cx + ringR + 10;
         let sw = (x + w - pad) - sx;
@@ -187,14 +187,14 @@ var Dashboard = class Dashboard {
             let color = v <= 40 ? Draw.PALETTE.cyan
                       : v <= 70 ? Draw.PALETTE.tertiary
                       : Draw.PALETTE.error;
-            this._drawText(area, ctx, 'C' + i, bx + 2, by, Draw.PALETTE.onSurfaceVariant,
+            this._drawText(area, ctx, 'C' + i, bx + 2, by, Draw.PALETTE.textVariant,
                 { size: 7 });
             this._drawText(area, ctx, Math.round(v) + '%', bx + cw - 2, by, color,
                 { size: 7, align: 'right' });
             let bwy = by + labelH;
             let bw = cw - 4;
             Draw.fillRoundRect(ctx, bx + 2, bwy, bw, barH, barH / 2,
-                Draw.PALETTE.surfaceContainerHigh, 1);
+                Draw.PALETTE.surfaceHigh, 1);
             if (v > 0.5) {
                 let fw = Math.max(2, Math.round(v / 100 * bw));
                 Draw.fillRoundRect(ctx, bx + 2, bwy, fw, barH, barH / 2, color, 1);
@@ -206,7 +206,7 @@ var Dashboard = class Dashboard {
         let prov = this.applet.providers.mem;
         let d = prov.data;
         if (!d || !d.total) return;
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surfaceContainer, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
         Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
 
         let pad = 10;
@@ -231,7 +231,7 @@ var Dashboard = class Dashboard {
                 Draw.PALETTE.primary,
                 Draw.PALETTE.cyan,
                 Draw.PALETTE.secondary,
-                Draw.PALETTE.surfaceContainerHigh
+                Draw.PALETTE.surfaceHigh
             ];
             let histUsed = prov.usedHistory && prov.usedHistory.length ? prov.usedHistory : [d.used];
             let histCache = prov.cacheHistory && prov.cacheHistory.length ? prov.cacheHistory : [d.cache];
@@ -242,12 +242,12 @@ var Dashboard = class Dashboard {
                 { label: 'used', value: d.used, hex: Draw.PALETTE.primary },
                 { label: 'cache', value: d.cache, hex: Draw.PALETTE.cyan },
                 { label: 'buffers', value: d.buffers, hex: Draw.PALETTE.secondary },
-                { label: 'free', value: freeVal, hex: Draw.PALETTE.surfaceContainerHigh, textHex: Draw.PALETTE.onSurfaceVariant }
+                { label: 'free', value: freeVal, hex: Draw.PALETTE.surfaceHigh, textHex: Draw.PALETTE.textVariant }
             ];
         } else {
             colors = [
                 Draw.PALETTE.primary,
-                Draw.PALETTE.surfaceContainerHigh
+                Draw.PALETTE.surfaceHigh
             ];
             let histUsed = prov.usedHistory && prov.usedHistory.length ? prov.usedHistory : [d.used];
             // free inclusive = total - used (covers cache+buffers+free)
@@ -257,7 +257,7 @@ var Dashboard = class Dashboard {
             histSeries = [histUsed, histFreeInc];
             rows = [
                 { label: 'used', value: d.used, hex: Draw.PALETTE.primary },
-                { label: 'free', value: freeInclusive, hex: Draw.PALETTE.surfaceContainerHigh, textHex: Draw.PALETTE.onSurfaceVariant }
+                { label: 'free', value: freeInclusive, hex: Draw.PALETTE.surfaceHigh, textHex: Draw.PALETTE.textVariant }
             ];
         }
         Draw.drawStackedGraph(ctx,
@@ -287,7 +287,7 @@ var Dashboard = class Dashboard {
         let legendH = rows.length * lh + 6; // tighter vertical padding
         // only draw scrim if graph is large enough
         if (gh > legendH + 22) {
-            Draw.fillRoundRect(ctx, gx + 4, gy + 4, legendW, legendH, 6, Draw.PALETTE.surfaceContainer, 0.78);
+            Draw.fillRoundRect(ctx, gx + 4, gy + 4, legendW, legendH, 6, Draw.PALETTE.surface, 0.78);
             Draw.strokeRoundRect(ctx, gx + 4, gy + 4, legendW, legendH, 6, Draw.PALETTE.outlineVariant, 0.22, 1);
         }
         for (let i = 0; i < rows.length; i++) {
@@ -300,7 +300,7 @@ var Dashboard = class Dashboard {
             ctx.arc(dotX, dotY, dotR, 0, 2 * Math.PI);
             Draw.setSourceHex(ctx, r.hex, 1);
             ctx.fill();
-            this._drawText(area, ctx, r.label, dotX + dotR + 4, lyy, Draw.PALETTE.onSurfaceVariant, { size: 7.5 });
+            this._drawText(area, ctx, r.label, dotX + dotR + 4, lyy, Draw.PALETTE.textVariant, { size: 7.5 });
             let valueColor = r.textHex || r.hex;
             this._drawText(area, ctx, Draw.formatBytes(r.value), gx + 4 + legendW - 6, lyy, valueColor,
                 { size: 7.5, weight: 'bold', align: 'right' });
@@ -312,13 +312,13 @@ var Dashboard = class Dashboard {
             let swBarH = 8;
             let swLabelW = 30;
             // scrim for swap strip
-            Draw.fillRoundRect(ctx, gx + 4, swY - 3, gw - 8, swBarH + 6, 4, Draw.PALETTE.surfaceContainer, 0.78);
+            Draw.fillRoundRect(ctx, gx + 4, swY - 3, gw - 8, swBarH + 6, 4, Draw.PALETTE.surface, 0.78);
             Draw.strokeRoundRect(ctx, gx + 4, swY - 3, gw - 8, swBarH + 6, 4, Draw.PALETTE.outlineVariant, 0.22, 1);
-            this._drawText(area, ctx, 'swap', gx + 8, swY, Draw.PALETTE.onSurfaceVariant, { size: 7 });
+            this._drawText(area, ctx, 'swap', gx + 8, swY, Draw.PALETTE.textVariant, { size: 7 });
             let bx = gx + 8 + swLabelW;
             let swBarW = gw - 8 - swLabelW - 36 - 10;
             if (swBarW < 10) swBarW = 10;
-            Draw.fillRoundRect(ctx, bx, swY + 1, swBarW, swBarH, 4, Draw.PALETTE.surfaceContainerHigh, 1);
+            Draw.fillRoundRect(ctx, bx, swY + 1, swBarW, swBarH, 4, Draw.PALETTE.surfaceHigh, 1);
             if (d.swapPct > 0) {
                 ctx.save();
                 Draw.roundedRect(ctx, bx, swY + 1, swBarW, swBarH, 4);
@@ -335,7 +335,7 @@ var Dashboard = class Dashboard {
 
     _drawGraphPanel(ctx, area, x, y, w, h, title, headerRight, headerColor,
                     series, labels, labelColor) {
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surfaceContainer, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
         Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
 
         let pad = 10;
@@ -406,11 +406,11 @@ var Dashboard = class Dashboard {
 
     _drawTempsStrip(ctx, area, x, y, w, h) {
         let temp = this.applet.providers.temp;
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surfaceContainer, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
         Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
 
         this._drawText(area, ctx, 'TEMPS', x + 10, y + Math.round((h - 9) / 2) + 1,
-            Draw.PALETTE.onSurfaceVariant, { size: 8.5, weight: 'bold' });
+            Draw.PALETTE.textVariant, { size: 8.5, weight: 'bold' });
 
         let ax = x + 10 + 48;
         let sensors = temp.cpus.concat(temp.gpus);
@@ -433,7 +433,7 @@ var Dashboard = class Dashboard {
         let pillH = h - 8;
         let py = y + Math.round((h - pillH) / 2);
         let cy = py + pillH / 2;
-        Draw.fillRoundRect(ctx, x, py, pillW, pillH, pillH / 2, Draw.PALETTE.surfaceContainerHigh, 1);
+        Draw.fillRoundRect(ctx, x, py, pillW, pillH, pillH / 2, Draw.PALETTE.surfaceHigh, 1);
         ctx.newPath();
         ctx.arc(x + padX + dotR + 2, cy, dotR, 0, 2 * Math.PI);
         Draw.setSourceHex(ctx, color, 1);

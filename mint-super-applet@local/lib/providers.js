@@ -743,11 +743,14 @@ var BatteryProvider = class BatteryProvider {
         let voltageU = _parseUpowerNumber(up('voltage'));
         let cyclesU = up('charge-cycles');
         let cycles = null;
-        if (cyclesU && !/^n\/a$/i.test(cyclesU)) {
+        // If upower explicitly reports N/A, trust it and don't fall back to
+        // sysfs (many drivers report a bogus cycle_count of 0 when unknown).
+        let cyclesUnknown = cyclesU && /^n\/a$/i.test(cyclesU);
+        if (cyclesU && !cyclesUnknown) {
             let n = parseInt(cyclesU, 10);
             if (!isNaN(n)) cycles = n;
         }
-        if (cycles === null && s && s.cycleCount !== null)
+        if (cycles === null && !cyclesUnknown && s && s.cycleCount !== null)
             cycles = s.cycleCount;
 
         // Normalize state label

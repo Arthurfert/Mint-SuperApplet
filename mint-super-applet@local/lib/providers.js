@@ -472,3 +472,337 @@ var TempProvider = class TempProvider {
         });
     }
 };
+
+function _parseIntFile(path) {
+    let v = readFile(path);
+    if (!v) return null;
+    let n = parseInt(v.trim(), 10);
+    return isNaN(n) ? null : n;
+}
+
+function _parseStrFile(path) {
+    let v = readFile(path);
+    if (!v) return null;
+    v = v.trim();
+    return v ? v : null;
+}
+
+// Parse a localized upower number: "68,0553 Wh", "16,711 V", "100%", "75,6123%".
+// Returns float or null (N/A -> null).
+function _parseUpowerNumber(s) {
+    if (!s) return null;
+    s = s.trim();
+    if (!s || /^n\/a$/i.test(s)) return null;
+    let m = s.match(/[-+]?[0-9]+(?:[.,][0-9]+)?/);
+    if (!m) return null;
+    let n = parseFloat(m[0].replace(',', '.'));
+    return isNaN(n) ? null : n;
+}
+
+// Parse `upower -d` output, returning the first real battery block as a flat dict.
+// Keys are lower-cased, e.g. { 'native-path': 'BAT1', 'state': 'fully-charged', ... }
+function _parseUpowerDump(text) {
+    if (!text) return null;
+    let blocks = text.split(/^Device:\s*/m);
+    let fallback = null;
+    for (let b of blocks) {
+        if (!b.trim()) continue;
+        let lines = b.split('\n');
+        let devPath = (lines[0] || '').trim();
+        let dict = { '_device': devPath };
+        for (let line of lines.slice(1)) {
+            let m = line.match(/^\s*([^:]+):\s*(.*)$/);
+            if (m) dict[m[1].trim().toLowerCase()] = m[2].trim();
+        }
+        let hasBatterySection = /^\s*battery\s*$/m.test(b);
+        let nativePath = dict['native-path'] || '';
+        let isDisplay = devPath.indexOf('DisplayDevice') >= 0;
+        let looksBattery = hasBatterySection &&
+            (nativePath.indexOf('BAT') === 0 || devPath.indexOf('battery_') >= 0);
+        if (looksBattery && !isDisplay)
+            return dict;
+        if (!fallback && hasBatterySection && !isDisplay)
+            fallback = dict;
+    }
+    return fallback;
+}
+
+var BatteryProvider = class BatteryProvider {
+    constructor(historyLength) {
+        this.historyLength = historyLength || 60;
+        this._names = [];
+        this._chargeHistory = [];
+        this._last = null;
+        this._upower = null;
+        this._upowerAt = 0;
+        this._upowerPending = false;
+        this._upowerAvailable = null;
+        this.onChange = null;
+        this._discover();
+        this.tick();
+    }
+
+    _discover() {
+        this._names = [];
+        let entries = readDir('/sys/class/power_supply');
+        for (let name of entries) {
+            let type = _parseStrFile('/sys/class/power_supply/' + name + '/type');
+            if (type && type.toLowerCase() === 'battery') {
+                let present = _parseStrFile('/sys/class/power_supply/' + name + '/present');
+                if (present === null || present === '1')
+                    this._names.push(name);
+            } else if (/^BAT\d*$/i.test(name)) {
+                if (this._names.indexOf(name) < 0)
+                    this._names.push(name);
+            }
+        }
+        this._names.sort();
+    }
+
+    _readOneSys(name) {
+        let base = '/sys/class/power_supply/' + name + '/';
+        let status = _parseStrFile(base + 'status');
+        let capacity = _parseIntFile(base + 'capacity');
+        let present = _parseIntFile(base + 'present');
+        let technology = _parseStrFile(base + 'technology');
+        let manufacturer = _parseStrFile(base + 'manufacturer');
+        let model = _parseStrFile(base + 'model_name');
+        let serial = _parseStrFile(base + 'serial_number');
+        let cycleCount = _parseIntFile(base + 'cycle_count');
+        let voltageNow = _parseIntFile(base + 'voltage_now'); // uV
+        let currentNow = _parseIntFile(base + 'current_now'); // uA (may be negative when charging)
+        let powerNow = _parseIntFile(base + 'power_now'); // uW (some kernels)
+        // Energy (uWh) vs charge (uAh) variants
+        let energyNow = _parseIntFile(base + 'energy_now');
+        let energyFull = _parseIntFile(base + 'energy_full');
+        let energyFullDesign = _parseIntFile(base + 'energy_full_design');
+        let chargeNow = _parseIntFile(base + 'charge_now');
+        let chargeFull = _parseIntFile(base + 'charge_full');
+        let chargeFullDesign = _parseIntFile(base + 'charge_full_design');
+        let voltageMinDesign = _parseIntFile(base + 'voltage_min_design');
+        let capacityLevel = _parseStrFile(base + 'capacity_level');
+        return {
+            name, status, capacity, present, technology, manufacturer, model, serial,
+            cycleCount, voltageNow, currentNow, powerNow,
+            energyNow, energyFull, energyFullDesign,
+            chargeNow, chargeFull, chargeFullDesign,
+            voltageMinDesign, capacityLevel
+        };
+    }
+
+    tick() {
+        // Re-discover occasionally (battery hot-plug is rare; cheap enough to redo each tick)
+        if (!this._names.length)
+            this._discover();
+
+        let raws = [];
+        for (let n of this._names) {
+            try {
+                raws.push(this._readOneSys(n));
+            } catch (e) { /* ignore */ }
+        }
+        raws = raws.filter(r => r.present === null || r.present === 1);
+        if (!raws.length && this._names.length) {
+            // keep stale names list but report absent
+        }
+
+        let sys = null;
+        if (raws.length) {
+            // Aggregate: sum energies/charges, mean voltage, first identity fields
+            let sum = (k) => raws.reduce((a, r) => a + (r[k] || 0), 0);
+            let first = raws[0];
+            let useEnergy = first.energyFull !== null && first.energyFull > 0;
+            let nowU = useEnergy ? sum('energyNow') : sum('chargeNow');
+            let fullU = useEnergy ? sum('energyFull') : sum('chargeFull');
+            let designU = useEnergy ? sum('energyFullDesign') : sum('chargeFullDesign');
+            let healthPct = (fullU > 0 && designU > 0) ? (fullU / designU * 100) : null;
+            let pct = null;
+            if (first.capacity !== null && raws.length === 1)
+                pct = Math.max(0, Math.min(100, first.capacity));
+            else if (fullU > 0 && nowU >= 0)
+                pct = Math.max(0, Math.min(100, nowU / fullU * 100));
+            // Status: Charging wins, then Discharging, then Full, else first
+            let prio = { 'charging': 0, 'discharging': 1, 'not charging': 2, 'full': 3 };
+            let status = first.status || null;
+            let best = prio[(status || '').toLowerCase()];
+            if (best === undefined) best = 9;
+            for (let r of raws) {
+                let p = prio[(r.status || '').toLowerCase()];
+                if (p === undefined) p = 9;
+                if (p < best) { best = p; status = r.status; }
+            }
+            let voltageV = first.voltageNow !== null ? first.voltageNow / 1e6 : null;
+            let currentA = null;
+            if (first.currentNow !== null)
+                currentA = Math.abs(first.currentNow) / 1e6;
+            let powerW = null;
+            if (first.powerNow !== null)
+                powerW = Math.abs(first.powerNow) / 1e6;
+            else if (voltageV !== null && currentA !== null)
+                powerW = voltageV * currentA;
+
+            sys = {
+                count: raws.length,
+                name: first.name,
+                names: raws.map(r => r.name),
+                status: status,
+                percentage: pct,
+                healthPct: healthPct,
+                useEnergyUnits: useEnergy,
+                nowU: nowU, fullU: fullU, designU: designU,
+                voltageV: voltageV,
+                currentA: currentA,
+                powerW: powerW,
+                voltageMinDesignV: first.voltageMinDesign !== null ? first.voltageMinDesign / 1e6 : null,
+                technology: first.technology,
+                manufacturer: first.manufacturer,
+                model: first.model,
+                serial: first.serial,
+                cycleCount: first.cycleCount,
+                capacityLevel: first.capacityLevel,
+                raws: raws
+            };
+        }
+
+        this._last = sys;
+        let pctHist = sys && sys.percentage !== null ? sys.percentage : null;
+        if (pctHist !== null) {
+            this._chargeHistory.push(pctHist);
+            if (this._chargeHistory.length > this.historyLength)
+                this._chargeHistory.shift();
+        }
+
+        // Throttled async upower refresh (sysfs is instant; upower gives health/cycles/rates)
+        let now = Date.now();
+        if (!this._upowerPending && (now - this._upowerAt > 30000 || this._upowerAt === 0))
+            this._upowerFetch();
+    }
+
+    _upowerFetch() {
+        this._upowerPending = true;
+        let proc = null;
+        try {
+            proc = Gio.Subprocess.new(['upower', '-d'], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
+        } catch (e) {
+            this._upowerPending = false;
+            this._upowerAvailable = false;
+            this._upowerAt = Date.now();
+            return;
+        }
+        proc.communicate_async(null, null, (p, res) => {
+            this._upowerPending = false;
+            this._upowerAt = Date.now();
+            try {
+                let r = p.communicate_finish(res);
+                if (p.get_successful() && r && r[1]) {
+                    let s = _toString(r[1]);
+                    let dict = _parseUpowerDump(s);
+                    this._upowerAvailable = true;
+                    this._upower = dict;
+                } else {
+                    this._upowerAvailable = false;
+                }
+            } catch (e) {
+                this._upowerAvailable = false;
+            }
+            if (this.onChange) this.onChange();
+        });
+    }
+
+    get sys() {
+        return this._last;
+    }
+
+    get upowerRaw() {
+        return this._upower;
+    }
+
+    get chargeHistory() {
+        return this._chargeHistory;
+    }
+
+    get hasBattery() {
+        if (this._last) return true;
+        if (this._upower && /yes/i.test(this._upower['present'] || '')) return true;
+        return false;
+    }
+
+    // Merged view for the UI: prefers live sysfs, falls back to upower.
+    get data() {
+        let u = this._upower || {};
+        let s = this._last;
+        let up = (k) => (u[k] !== undefined ? u[k] : null);
+
+        let percentage = s && s.percentage !== null ? s.percentage : _parseUpowerNumber(up('percentage'));
+        let stateRaw = (s && s.status) || up('state') || null;
+        let healthPct = s && s.healthPct !== null ? s.healthPct : _parseUpowerNumber(up('capacity'));
+        let energyFull = _parseUpowerNumber(up('energy-full'));
+        let energyFullDesign = _parseUpowerNumber(up('energy-full-design'));
+        let energyNow = _parseUpowerNumber(up('energy'));
+        let energyRate = _parseUpowerNumber(up('energy-rate'));
+        let voltageU = _parseUpowerNumber(up('voltage'));
+        let cyclesU = up('charge-cycles');
+        let cycles = null;
+        if (cyclesU && !/^n\/a$/i.test(cyclesU)) {
+            let n = parseInt(cyclesU, 10);
+            if (!isNaN(n)) cycles = n;
+        }
+        if (cycles === null && s && s.cycleCount !== null)
+            cycles = s.cycleCount;
+
+        // Normalize state label
+        let state = null;
+        if (stateRaw) {
+            let l = stateRaw.trim().toLowerCase().replace(/-/g, ' ');
+            if (l === 'fully charged' || l === 'full') state = 'Full';
+            else if (l === 'charging') state = 'Charging';
+            else if (l === 'discharging') state = 'Discharging';
+            else if (l === 'empty') state = 'Empty';
+            else if (l === 'unknown') state = 'Unknown';
+            else state = stateRaw.trim();
+            // Title-case single words
+            if (/^[a-z ]+$/.test(state.toLowerCase()))
+                state = state.replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        return {
+            hasBattery: this.hasBattery,
+            percentage: percentage,
+            state: state,
+            healthPct: healthPct,
+            // sysfs live values
+            sys: s,
+            voltageV: (s && s.voltageV !== null) ? s.voltageV : voltageU,
+            powerW: (s && s.powerW !== null) ? s.powerW : energyRate,
+            currentA: s ? s.currentA : null,
+            technology: (s && s.technology) || up('technology') || null,
+            manufacturer: (s && s.manufacturer) || up('vendor') || null,
+            model: (s && s.model) || up('model') || null,
+            serial: (s && s.serial) || up('serial') || null,
+            cycleCount: cycles,
+            capacityLevel: (s && s.capacityLevel) || up('warning-level') || null,
+            // upower general health data
+            upower: {
+                raw: u,
+                available: this._upowerAvailable,
+                state: up('state'),
+                percentage: up('percentage'),
+                energy: energyNow,
+                energyFull: energyFull,
+                energyFullDesign: energyFullDesign,
+                energyRate: energyRate,
+                voltage: voltageU,
+                capacity: _parseUpowerNumber(up('capacity')),
+                timeToEmpty: up('time to empty'),
+                timeToFull: up('time to full'),
+                warningLevel: up('warning-level'),
+                rechargeable: up('rechargeable'),
+                vendor: up('vendor'),
+                model: up('model'),
+                updated: up('updated'),
+                hasHistory: up('has history'),
+                hasStatistics: up('has statistics')
+            }
+        };
+    }
+};

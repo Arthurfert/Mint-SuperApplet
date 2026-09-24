@@ -18,3 +18,35 @@
     background-color: transparent;
     border-radius: 8px;
 }
+
+/* Mint SuperApplet - multi-page navigation arrows */
+.msa-pages {
+    spacing: 0px;
+}
+
+.msa-nav-btn {
+    min-width: 28px;
+    border-radius: 10px;
+    background-color: transparent;
+    border: 0px;
+    color: #c9c0e8;
+}
+
+.msa-nav-btn:hover {
+    background-color: rgba(255, 255, 255, 0.07);
+    color: #ece6ff;
+}
+
+.msa-nav-btn:active {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.msa-nav-btn:focus {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.msa-nav-icon {
+    color: #c9c0e8;
+    icon-size: 16px;
+    font-size: 20px;
+}

@@ -30,6 +30,7 @@ class MintSuperApplet extends Applet.Applet {
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-network', 'showNetwork', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-disk', 'showDisk', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-temps', 'showTemps', this._onSettingsChanged, null);
+        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-battery-page', 'showBatteryPage', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-cpu', 'panelShowCpu', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-memory', 'panelShowMemory', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'color-primary', 'colorPrimary', this._onSettingsChanged, null);
@@ -49,9 +50,11 @@ class MintSuperApplet extends Applet.Applet {
             mem: new Providers.MemProvider(),
             net: new Providers.NetProvider(),
             disk: new Providers.DiskProvider(),
-            temp: new Providers.TempProvider()
+            temp: new Providers.TempProvider(),
+            battery: new Providers.BatteryProvider()
         };
         this.providers.temp.onChange = () => this._repaintAll();
+        this.providers.battery.onChange = () => this._repaintAll();
 
         this._panelArea = new St.DrawingArea();
         this._panelArea.connect('repaint', () => this._paintPanel(this._panelArea));
@@ -97,6 +100,8 @@ class MintSuperApplet extends Applet.Applet {
         this.providers.mem.tick();
         this.providers.net.tick();
         this.providers.disk.tick();
+        if (this.providers.battery)
+            this.providers.battery.tick();
         this._setTooltip();
         this._repaintAll();
     }
@@ -117,6 +122,11 @@ class MintSuperApplet extends Applet.Applet {
         let net = this.providers.net.last;
         parts.push('▼ ' + Draw.formatBytes(net.down, true) +
                    '  ▲ ' + Draw.formatBytes(net.up, true));
+        try {
+            let b = this.providers.battery && this.providers.battery.data;
+            if (b && b.hasBattery && b.percentage !== null && isFinite(b.percentage))
+                parts.push('BAT ' + Math.round(b.percentage) + '%' + (b.state ? ' (' + b.state + ')' : ''));
+        } catch (e) { /* ignore */ }
         let temps = [];
         for (let s of this.providers.temp.cpus.concat(this.providers.temp.gpus))
             temps.push(s.label + ' ' + s.temp + '°C');

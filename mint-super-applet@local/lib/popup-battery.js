@@ -71,7 +71,7 @@ var BatteryPage = {
     _healthColor(pct) {
         if (pct === null || pct === undefined || !isFinite(pct)) return Draw.PALETTE.textVariant;
         if (pct >= 80) return Draw.PALETTE.cyan;
-        if (pct >= 50) return Draw.PALETTE.tertiary;
+        if (pct >= 60) return Draw.PALETTE.tertiary;
         return Draw.PALETTE.error;
     },
 
@@ -120,10 +120,10 @@ var BatteryPage = {
     },
 
     _statRow(ctx, area, x, y, w, label, value, valueColor) {
-        this._drawText(area, ctx, label, x, y, Draw.PALETTE.textVariant, { size: 8 });
+        this._drawText(area, ctx, label, x, y, Draw.PALETTE.textVariant, { size: 10 });
         this._drawText(area, ctx, value, x + w, y - 1, valueColor || Draw.PALETTE.text,
-            { size: 8.5, weight: 'bold', align: 'right' });
-        return 14;
+            { size: 11, weight: 'bold', align: 'right' });
+        return 22;
     },
 
     _paintBattery(ctx, area, W, H) {
@@ -185,12 +185,13 @@ var BatteryPage = {
         return line;
     },
 
-    // Single unified hero card merging the old CHARGE + HEALTH panels.
+    // Single unified hero card: charge ring on the left, health + live
+    // essentials on the right. Fills the full card height (no history chart).
     _drawBatteryHero(ctx, area, x, y, w, h, d) {
         Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
         Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
 
-        let pad = 14;
+        let pad = 18;
         let pct = d.percentage;
         let hpct = d.healthPct;
         let ringColor = this._chargeColor(pct);
@@ -198,40 +199,40 @@ var BatteryPage = {
         let stateColor = this._batteryStateColor(d.state, pct);
 
         // Header: title + subtitle on the left.
-        this._drawText(area, ctx, 'BATTERY', x + 10, y + 3, Draw.PALETTE.textVariant,
-            { size: 8.5, weight: 'bold' });
+        this._drawText(area, ctx, 'BATTERY', x + 10, y + 5, Draw.PALETTE.textVariant,
+            { size: 10, weight: 'bold' });
         let sub = this._batteryModelLine(d);
         if (sub)
-            this._drawText(area, ctx, sub, x + 10, y + 16, Draw.PALETTE.textVariant,
-                { size: 7.5, alpha: 0.8 });
+            this._drawText(area, ctx, sub, x + 10, y + 20, Draw.PALETTE.textVariant,
+                { size: 9, alpha: 0.8 });
 
-        let top = y + 40;
-        let bottomSparkH = 72;
-        let mainH = h - 40 - bottomSparkH - pad;
-        if (mainH < 80) mainH = 80;
+        let top = y + 50;
+        let mainH = h - 50 - pad;
+        if (mainH < 120) mainH = 120;
 
         // Two zones separated by a vertical divider.
-        let leftW = Math.round((w - 2 * pad) * 0.38);
-        let divGap = 14;
+        let leftW = Math.round((w - 2 * pad) * 0.42);
+        let divGap = 18;
         let rightX = x + pad + leftW + divGap;
         let rightW = (x + w - pad) - rightX;
         let divX = x + pad + leftW + Math.floor(divGap / 2);
 
-        // Left: big charge ring with time underneath.
-        let ringR = Math.min(48, Math.max(30, Math.round(mainH / 2) - 22));
-        let ringTh = 9;
+        // Left: big charge ring with time underneath, vertically centered
+        // (shifted slightly up to leave room for the time label).
+        let ringR = Math.min(64, Math.max(38, Math.round(mainH / 2) - 36));
+        let ringTh = 12;
         let leftCx = x + pad + Math.round(leftW / 2);
-        let ringCy = top + Math.round((mainH - 30) / 2) + 6;
+        let ringCy = top + Math.round(mainH / 2) - 10;
         Draw.drawRing(ctx, leftCx, ringCy, ringR, ringTh, (pct || 0) / 100,
             ringColor, Draw.PALETTE.surfaceHigh);
-        this._drawText(area, ctx, this._fmtPct(pct), leftCx, ringCy - 10,
-            Draw.PALETTE.text, { size: 20, weight: 'bold', align: 'center' });
-        this._drawText(area, ctx, 'CHARGE', leftCx, ringCy + 10,
-            Draw.PALETTE.textVariant, { size: 7, align: 'center' });
+        this._drawText(area, ctx, this._fmtPct(pct), leftCx, ringCy - 13,
+            Draw.PALETTE.text, { size: 28, weight: 'bold', align: 'center' });
+        this._drawText(area, ctx, 'CHARGE', leftCx, ringCy + 14,
+            Draw.PALETTE.textVariant, { size: 9, align: 'center' });
         let timeText = this._batteryTimeText(d);
-        this._drawText(area, ctx, timeText || this._fmtWatts(d.powerW), leftCx, ringCy + ringR + 8,
+        this._drawText(area, ctx, timeText || this._fmtWatts(d.powerW), leftCx, ringCy + ringR + 12,
             timeText ? Draw.PALETTE.text : Draw.PALETTE.textVariant,
-            { size: 9, weight: timeText ? 'bold' : 'normal', align: 'center' });
+            { size: 11, weight: timeText ? 'bold' : 'normal', align: 'center' });
 
         // Vertical divider.
         ctx.save();
@@ -243,46 +244,36 @@ var BatteryPage = {
         ctx.stroke();
         ctx.restore();
 
-        // Right: health block + live essentials.
-        let ry = top + 2;
+        // Right: health block + live essentials, vertically centered.
+        // Estimated block height: label(20) + bar(14+8) + capacity(18)
+        // + 5 stat rows (5*22) + separator(12) = ~182.
+        let blockH = 20 + 14 + 8 + 18 + 5 * 22 + 12;
+        let ry = top + Math.max(4, Math.round((mainH - blockH) / 2));
         this._drawText(area, ctx, 'HEALTH  ' + this._fmtPct(hpct), rightX, ry, hcolor,
-            { size: 8.5, weight: 'bold' });
-        ry += 15;
-        let barH = 10;
+            { size: 11, weight: 'bold' });
+        ry += 20;
+        let barH = 14;
         Draw.fillRoundRect(ctx, rightX, ry, rightW, barH, barH / 2, Draw.PALETTE.surfaceHigh, 1);
         if (hpct !== null && isFinite(hpct) && hpct > 0) {
-            let fw = Math.max(4, Math.round(Math.max(0, Math.min(100, hpct)) / 100 * rightW));
+            let fw = Math.max(6, Math.round(Math.max(0, Math.min(100, hpct)) / 100 * rightW));
             Draw.fillRoundRect(ctx, rightX, ry, fw, barH, barH / 2, hcolor, 1);
         }
-        ry += barH + 4;
+        ry += barH + 8;
         let cap = this._batteryCapacityText(d);
         this._drawText(area, ctx, cap.fullT + '  /  ' + cap.designT + ' design',
-            rightX + rightW, ry, Draw.PALETTE.textVariant, { size: 7.5, align: 'right' });
-        ry += 13;
+            rightX + rightW, ry, Draw.PALETTE.textVariant, { size: 9, align: 'right' });
+        ry += 18;
         let cyc = (d.cycleCount !== null && d.cycleCount !== undefined) ? String(d.cycleCount) : 'N/A';
         ry += this._statRow(ctx, area, rightX, ry, rightW, 'cycles', cyc, Draw.PALETTE.text);
         // Thin separator before live essentials.
         Draw.fillRoundRect(ctx, rightX, ry + 1, rightW, 1, 0, Draw.PALETTE.outlineVariant, 0.4);
-        ry += 6;
+        ry += 12;
         ry += this._statRow(ctx, area, rightX, ry, rightW, 'status', d.state || '—', stateColor);
         ry += this._statRow(ctx, area, rightX, ry, rightW, 'power', this._fmtWatts(d.powerW),
             Draw.PALETTE.tertiary);
-        this._statRow(ctx, area, rightX, ry, rightW, 'voltage', this._fmtVolts(d.voltageV),
+        ry += this._statRow(ctx, area, rightX, ry, rightW, 'voltage', this._fmtVolts(d.voltageV),
             Draw.PALETTE.cyan);
-
-        // Bottom: full-width charge history.
-        let gx = x + pad, gw = w - 2 * pad;
-        let gy = y + h - pad - bottomSparkH;
-        Draw.fillRoundRect(ctx, gx, gy, gw, bottomSparkH, 8, Draw.PALETTE.surfaceHigh, 0.45);
-        try {
-            let bp = this.applet.providers && this.applet.providers.battery;
-            let hist = bp ? bp.chargeHistory : null;
-            if (hist && hist.length >= 2) {
-                Draw.drawSparkline(ctx, hist, gx + 6, gy + 6, gw - 12, bottomSparkH - 12,
-                    ringColor, { lineWidth: 1.5, fillAlpha: 0.18, max: 100, clipRadius: 5 });
-            }
-        } catch (e) { /* ignore */ }
-        this._drawText(area, ctx, 'charge history', gx + 10, gy + 6,
-            Draw.PALETTE.textVariant, { size: 7 });
+        this._statRow(ctx, area, rightX, ry, rightW, 'current', this._fmtAmps(d.currentA),
+            Draw.PALETTE.text);
     }
 };

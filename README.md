@@ -2,16 +2,20 @@
 
 A custom Cinnamon applet with modern styling.
 
-Right now it is **just a system monitor** featuring :
-- **CPU usage** (global and pre-core)
-- **Memory** (usage graph)
-- **Network** (download/upload graphs)
-- **Disk usage** (read/write graphs)
-- **Temperatures** (CPU, Graphic card)
+Right now it features :
+- **System monitor** page with :
+  - CPU usage (global and pre-core)
+  - Memory (usage graph)
+  - Network (download/upload graphs)
+  - Disk usage (read/write graphs)
+  - Temperatures (CPU, Graphic card)
+- **Battery monitoring** page with :
+  - Battery life
+  - Battery health (percentage left from designed, cycles)
+  - Battery current specs (voltage, power...)
 
 It will then improve gradually, with :
 
-- PC's health popup window (battery life etc...)
 - Weather forecast
 - Media player
 
@@ -48,5 +52,7 @@ mint-super-applet@local/
 └── lib/
     ├── draw.js            # Cairo helpers + palette
     ├── providers.js       # /proc data (CPU, mem, net, disk, temps)
-    └── popup.js           # dashboard popup rendering
+    ├── popup.js           # popup and pages management
+    ├── popup-overview.js  # system monitor page rendering
+    └── popup-battery.js   # battery page rendering
 ```

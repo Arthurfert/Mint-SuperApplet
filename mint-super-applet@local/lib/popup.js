@@ -9,22 +9,37 @@ var Dashboard = class Dashboard {
         this.w = 520;
         this.h = 440;
         this.pageIndex = 0;
-        this.NAV_W = 30;
-        this.area = new St.DrawingArea();
+        // Width of the invisible edge hover zone (logical px) that reveals an arrow.
+        this.EDGE_ZONE = 56;
+        this.area = new St.DrawingArea({ reactive: true, track_hover: true });
         this.area.connect('repaint', () => this._paint(this.area));
-        // Wrap the drawing area with left/right navigation arrows so the
-        // overview dashboard becomes one page among others.
-        this.container = new St.BoxLayout({
+
+        // True overlay: plain fixed-layout container where the drawing area
+        // keeps its full configured size and the arrows are explicitly
+        // positioned above the content at the left/right edges, taking no
+        // layout space of their own.
+        this.container = new St.Widget({
             style_class: 'msa-pages',
-            vertical: false,
             x_expand: true,
-            y_expand: true
+            y_expand: true,
+            reactive: true,
+            track_hover: true
         });
-        this.navLeft = this._makeNavButton('go-previous-symbolic', '\u2039', () => this.prevPage());
-        this.navRight = this._makeNavButton('go-next-symbolic', '\u203A', () => this.nextPage());
-        this._addChild(this.container, this.navLeft);
-        this._addChild(this.container, this.area);
-        this._addChild(this.container, this.navRight);
+        this.container.add_actor(this.area);
+
+        this.navLeft = this._makeNavButton('go-previous-symbolic', '\u2039',
+            'msa-nav-left', () => this._onArrowClicked(() => this.prevPage()));
+        this.navRight = this._makeNavButton('go-next-symbolic', '\u203A',
+            'msa-nav-right', () => this._onArrowClicked(() => this.nextPage()));
+        if (this.navLeft) this.container.add_actor(this.navLeft);
+        if (this.navRight) this.container.add_actor(this.navRight);
+
+        // Mouse tracking for edge-hover reveal
+        this._navHoverLeft = false;
+        this._navHoverRight = false;
+        this._lastZonePress = 0;
+        this._setupEdgeTracking();
+
         this._relayout();
         this._updateNav();
     }
@@ -33,30 +48,146 @@ var Dashboard = class Dashboard {
         return this.container;
     }
 
-    _addChild(parent, child) {
-        if (!parent || !child) return;
+    _setupEdgeTracking() {
+        let c = this.container;
+        if (!c) return;
         try {
-            if (typeof parent.add_child === 'function') {
-                parent.add_child(child);
-                return;
-            }
-        } catch (e) { /* fall through */ }
+            c.connect('motion-event', (actor, event) => {
+                this._checkEdgeHover(event);
+            });
+            c.connect('leave-event', () => {
+                this._setNavHover(false, false);
+            });
+            // Turn the page on press, not on release: the popup menu can
+            // swallow button-release (which St.Button needs for 'clicked'),
+            // and this makes the whole edge strip clickable, not just the
+            // 34px circle. Returning true stops the menu from acting on it.
+            c.connect('button-press-event', (actor, event) => {
+                return this._handlePress(event);
+            });
+        } catch (e) { /* ignore */ }
+        // NOTE: the arrows are intentionally non-reactive (see _makeNavButton):
+        // pointer events pass straight through them to the container, so no
+        // per-button hover handlers are needed here.
+    }
+
+    _localX(event) {
+        // Container-local logical x for an event, or null if unmappable.
+        // get_coords() is in stage coordinates; map them onto the container.
+        if (!event || !this.container) return null;
+        let coords = null;
         try {
-            if (typeof parent.add_actor === 'function')
-                parent.add_actor(child);
+            coords = event.get_coords();
+        } catch (e) { return null; }
+        if (!coords || coords.length < 2) return null;
+        let point = null;
+        try {
+            point = this.container.transform_stage_point(coords[0], coords[1]);
+        } catch (e) { return null; }
+        if (!point || !point[0]) return null;
+        let scale = global.ui_scale || 1;
+        return point[1] / scale;
+    }
+
+    _checkEdgeHover(event) {
+        let x = this._localX(event);
+        if (x === null) return;
+        let leftHover = x < this.EDGE_ZONE;
+        let rightHover = x > this.w - this.EDGE_ZONE;
+        if (leftHover !== this._navHoverLeft || rightHover !== this._navHoverRight) {
+            this._setNavHover(leftHover, rightHover);
+        }
+    }
+
+    _handlePress(event) {
+        if (!event || this.getPageCount() <= 1) return false;
+        let button = 1;
+        try { button = event.get_button(); } catch (e) { /* assume primary */ }
+        if (button !== 1) return false;
+        let x = this._localX(event);
+        if (x === null) return false;
+        if (x < this.EDGE_ZONE) {
+            this._lastZonePress = Date.now();
+            this.prevPage();
+            return true;
+        }
+        if (x > this.w - this.EDGE_ZONE) {
+            this._lastZonePress = Date.now();
+            this.nextPage();
+            return true;
+        }
+        return false;
+    }
+
+    _onArrowClicked(action) {
+        // The zone press above already turned the page on button-press; a
+        // mouse 'clicked' (press+release) arriving right after would turn it
+        // twice, i.e. back to where it started. Ignore those, but still honor
+        // keyboard-activated clicks, which have no preceding zone press.
+        if (this._lastZonePress && Date.now() - this._lastZonePress < 600) return;
+        action();
+    }
+
+    _showNavButton(btn, show) {
+        if (!btn) return;
+        try {
+            btn.opacity = show ? 255 : 0;
         } catch (e) { /* ignore */ }
     }
 
-    _makeNavButton(iconName, fallbackLabel, onClick) {
+    _setNavHover(left, right) {
+        // No arrows at all in single-page mode.
+        if (this.getPageCount() <= 1) {
+            left = false;
+            right = false;
+        }
+        this._navHoverLeft = left;
+        this._navHoverRight = right;
+        this._showNavButton(this.navLeft, left);
+        this._showNavButton(this.navRight, right);
+    }
+
+    _positionNavButtons() {
+        // Explicitly pin the arrows to the left/right edges, vertically
+        // centered. (Layout-manager alignment proved unreliable here, so we
+        // place them by hand; the container uses a fixed layout.)
+        let s = global.ui_scale || 1;
+        let W = Math.round(this.w * s);
+        let H = Math.round(this.h * s);
+        let margin = Math.round(10 * s);
+        let pairs = [[this.navLeft, 'left'], [this.navRight, 'right']];
+        for (let [btn, side] of pairs) {
+            if (!btn) continue;
+            let natW = 0, natH = 0;
+            try {
+                let [, nW] = btn.get_preferred_width(-1);
+                let [, nH] = btn.get_preferred_height(nW);
+                natW = nW;
+                natH = nH;
+            } catch (e) { /* fall back below */ }
+            if (!natW || !isFinite(natW)) natW = Math.round(34 * s);
+            if (!natH || !isFinite(natH)) natH = Math.round(34 * s);
+            let bx = side === 'left' ? margin : Math.max(margin, W - natW - margin);
+            let by = Math.max(0, Math.round((H - natH) / 2));
+            try { btn.set_size(natW, natH); } catch (e) { /* ignore */ }
+            try { btn.set_position(bx, by); } catch (e) { /* ignore */ }
+        }
+    }
+
+    _makeNavButton(iconName, fallbackLabel, extraClass, onClick) {
+        // The arrow is a purely visual indicator: it stays non-reactive so
+        // presses landing on its pixels bubble up to the container, which
+        // turns the page in _handlePress. (A reactive St.Button would consume
+        // the press for its own click synthesis while the menu eats the
+        // release, so 'clicked' would never fire.)
         let btn = null;
         try {
             btn = new St.Button({
-                style_class: 'msa-nav-btn',
-                reactive: true,
-                can_focus: true,
-                track_hover: true,
-                x_align: 1, // St.Align.MIDDLE
-                y_align: 1
+                style_class: 'msa-nav-btn ' + extraClass,
+                reactive: false,
+                can_focus: false,
+                track_hover: false,
+                opacity: 0 // hidden by default, shown on edge hover
             });
         } catch (e) {
             return null;
@@ -65,7 +196,7 @@ var Dashboard = class Dashboard {
         try {
             let icon = new St.Icon({
                 icon_name: iconName,
-                icon_size: 16,
+                icon_size: 20,
                 style_class: 'msa-nav-icon'
             });
             if (typeof btn.set_child === 'function') {
@@ -82,7 +213,7 @@ var Dashboard = class Dashboard {
                     btn.set_label(fallbackLabel);
                 else {
                     let lbl = new St.Label({ text: fallbackLabel, style_class: 'msa-nav-icon' });
-                    this._addChild(btn, lbl);
+                    btn.add_actor(lbl);
                 }
             } catch (e) { /* ignore */ }
         }
@@ -128,17 +259,9 @@ var Dashboard = class Dashboard {
     }
 
     _updateNav() {
-        let single = this.getPageCount() <= 1;
-        for (let b of [this.navLeft, this.navRight]) {
-            if (!b) continue;
-            try {
-                if (single) {
-                    if (typeof b.hide === 'function') b.hide();
-                } else {
-                    if (typeof b.show === 'function') b.show();
-                }
-            } catch (e) { /* ignore */ }
-        }
+        // Overlay buttons take no layout space; just re-apply hover visibility
+        // (and hide everything in single-page mode).
+        this._setNavHover(this._navHoverLeft, this._navHoverRight);
         // Clamp page index when the battery page is toggled off.
         this.currentPage();
     }
@@ -147,9 +270,10 @@ var Dashboard = class Dashboard {
         this.w = this.applet.popupWidth || 520;
         this.h = this.applet.popupHeight || 390;
         // The drawing area keeps the configured size so the existing
-        // overview layout is pixel-identical; nav arrows are extra chrome.
+        // overview layout is pixel-identical; nav arrows float above it.
         this.area.width = Math.max(1, Math.round(this.w * global.ui_scale));
         this.area.height = Math.max(1, Math.round(this.h * global.ui_scale));
+        this._positionNavButtons();
         this._updateNav();
         this.area.queue_repaint();
     }

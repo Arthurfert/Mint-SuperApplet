@@ -19,34 +19,47 @@
     border-radius: 8px;
 }
 
-/* Mint SuperApplet - multi-page navigation arrows */
+/* Mint SuperApplet - multi-page navigation arrows.
+ * The buttons float above the content (Clutter.BinLayout overlay) and take
+ * no layout space; they fade in only when the pointer nears an edge. */
 .msa-pages {
-    spacing: 0px;
+    padding: 0px;
+    margin: 0px;
 }
 
 .msa-nav-btn {
-    min-width: 28px;
-    border-radius: 10px;
-    background-color: transparent;
-    border: 0px;
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 17px;
+    background-color: rgba(18, 17, 30, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: #c9c0e8;
+    transition-duration: 150ms;
+}
+
+.msa-nav-left,
+.msa-nav-right {
+    margin: 0px;
+    padding: 0px;
 }
 
 .msa-nav-btn:hover {
-    background-color: rgba(255, 255, 255, 0.07);
+    background-color: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.5);
     color: #ece6ff;
 }
 
 .msa-nav-btn:active {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(139, 92, 246, 0.4);
 }
 
 .msa-nav-btn:focus {
-    background-color: rgba(255, 255, 255, 0.07);
+    background-color: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.7);
 }
 
 .msa-nav-icon {
     color: #c9c0e8;
-    icon-size: 16px;
+    size: 20px;
     font-size: 20px;
 }

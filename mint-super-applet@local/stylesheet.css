@@ -31,8 +31,7 @@
     min-width: 34px;
     min-height: 34px;
     border-radius: 17px;
-    background-color: rgba(18, 17, 30, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: transparent;
     color: #c9c0e8;
     transition-duration: 150ms;
 }

@@ -73,6 +73,11 @@
         "default": true,
         "description": "Show temperatures strip"
     },
+    "show-battery-page": {
+        "type": "switch",
+        "default": true,
+        "description": "Show battery health page (switch with side arrows)"
+    },
     "head-panel": {
         "type": "header",
         "description": "Panel indicator"

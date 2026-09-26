@@ -18,3 +18,47 @@
     background-color: transparent;
     border-radius: 8px;
 }
+
+/* Mint SuperApplet - multi-page navigation arrows.
+ * The buttons float above the content (Clutter.BinLayout overlay) and take
+ * no layout space; they fade in only when the pointer nears an edge. */
+.msa-pages {
+    padding: 0px;
+    margin: 0px;
+}
+
+.msa-nav-btn {
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 17px;
+    background-color: transparent;
+    color: #c9c0e8;
+    transition-duration: 150ms;
+}
+
+.msa-nav-left,
+.msa-nav-right {
+    margin: 0px;
+    padding: 0px;
+}
+
+.msa-nav-btn:hover {
+    background-color: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.5);
+    color: #ece6ff;
+}
+
+.msa-nav-btn:active {
+    background-color: rgba(139, 92, 246, 0.4);
+}
+
+.msa-nav-btn:focus {
+    background-color: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.7);
+}
+
+.msa-nav-icon {
+    color: #c9c0e8;
+    size: 20px;
+    font-size: 20px;
+}

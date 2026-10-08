@@ -264,24 +264,12 @@ var OverviewPage = {
         }
     },
 
-    _drawGraphPanel(ctx, area, x, y, w, h, title, headerRight, headerColor,
-                    series, labels, labelColor) {
+    _drawGraphPanel(ctx, area, x, y, w, h, title, headerParts, series) {
         Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
         Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
 
         let pad = 10;
-        let headerH;
-        // headerRight may be a string (legacy) or an array of {text,color} parts
-        // when it's an array, the call shifts: headerColor holds series
-        if (Array.isArray(headerRight)) {
-            headerH = this._drawPanelHeaderMulti(ctx, area, x, y, w, title, headerRight);
-            // shift args
-            labelColor = labels;
-            labels = series;
-            series = headerColor;
-        } else {
-            headerH = this._drawPanelHeader(ctx, area, x, y, w, title, headerRight, headerColor);
-        }
+        let headerH = this._drawPanelHeaderMulti(ctx, area, x, y, w, title, headerParts);
         let top = y + headerH + 2;
         let availW = w - 2 * pad;
         let availH = h - headerH - pad - 4;
@@ -289,10 +277,8 @@ var OverviewPage = {
         let gx = x + pad, gy = top + 2;
 
         series[0].draw(ctx, gx, gy, availW, gH);
-        this._drawText(area, ctx, labels[0], gx + 2, gy + 2, labelColor[0], { size: 7 });
         let gy2 = gy + gH + 6;
         series[1].draw(ctx, gx, gy2, availW, gH);
-        this._drawText(area, ctx, labels[1], gx + 2, gy2 + 2, labelColor[1], { size: 7 });
     },
 
     _drawNetPanel(ctx, area, x, y, w, h) {
@@ -310,9 +296,7 @@ var OverviewPage = {
             Draw.drawSparkline(c, net.upHistory, gx, gy, gw, gh, Draw.PALETTE.cyan,
                 { lineWidth: 1.5, fillAlpha: 0.15 }) };
         this._drawGraphPanel(ctx, area, x, y, w, h, 'NETWORK', headerParts,
-            [down, up],
-            ['▼ ' + Draw.formatBytes(net.last.down, true), '▲ ' + Draw.formatBytes(net.last.up, true)],
-            [Draw.PALETTE.tertiary, Draw.PALETTE.cyan]);
+            [down, up]);
     },
 
     _drawDiskPanel(ctx, area, x, y, w, h) {
@@ -330,9 +314,7 @@ var OverviewPage = {
             Draw.drawSparkline(c, disk.writeHistory, gx, gy, gw, gh, Draw.PALETTE.secondary,
                 { lineWidth: 1.5, fillAlpha: 0.15 }) };
         this._drawGraphPanel(ctx, area, x, y, w, h, 'DISK', headerParts,
-            [rd, wr],
-            ['R ' + Draw.formatBytes(disk.last.read, true), 'W ' + Draw.formatBytes(disk.last.write, true)],
-            [Draw.PALETTE.primary, Draw.PALETTE.secondary]);
+            [rd, wr]);
     },
 
     _drawTempsStrip(ctx, area, x, y, w, h) {

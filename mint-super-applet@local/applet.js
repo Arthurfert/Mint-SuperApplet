@@ -71,8 +71,13 @@ class MintSuperApplet extends Applet.Applet {
         this.dashboard = new Dashboard(this);
         this._contentSection.actor.add_actor(this.dashboard.actor);
         this.menu.connect('open-state-changed', (menu, open) => {
-            if (open)
-                this.dashboard.queueRepaint();
+            if (open) {
+                try {
+                    this.dashboard.onPopupOpened();
+                } catch (e) {
+                    this.dashboard.queueRepaint();
+                }
+            }
         });
 
         this.set_applet_tooltip('Mint SuperApplet');

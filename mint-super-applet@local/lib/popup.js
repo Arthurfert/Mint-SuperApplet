@@ -42,6 +42,16 @@ var Dashboard = class Dashboard {
         this._lastZonePress = 0;
         this._setupEdgeTracking();
 
+        // Page-switch slide animation + popup-open reveal animation.
+        // Durations in ms; tuned to feel snappy without getting in the way.
+        this._animDur = 260;
+        this._revealDur = 220;
+        this._revealTravel = 14;
+        this._anim = null; // { fromId, fromIdx, toId, toIdx, dir, start }
+        this._animTimer = null;
+        this._reveal = null; // { start }
+        this._revealTimer = null;
+
         this._relayout();
         this._updateNav();
     }
@@ -244,20 +254,112 @@ var Dashboard = class Dashboard {
         return pages[this.pageIndex] || pages[0];
     }
 
-    setPage(i) {
+    setPage(i, opts) {
+        opts = opts || {};
         let n = this.getPageCount();
         if (n <= 0) return;
-        this.pageIndex = ((i % n) + n) % n;
+        let target = ((i % n) + n) % n;
+        // When a switch animation is already running, pageIndex already
+        // points at its target, so continue from there to avoid jumps.
+        let base = this._anim ? this._anim.toIdx : this.pageIndex;
+        if (target === base && !this._anim) {
+            this.pageIndex = target;
+            this._updateNav();
+            this.queueRepaint();
+            return;
+        }
+        let pages = this._pages();
+        let dir = opts.dir || 0;
+        if (!dir) {
+            let fwd = (target - base + n) % n;
+            let bwd = (base - target + n) % n;
+            dir = fwd <= bwd ? 1 : -1;
+        }
+        let fromId = pages[base] ? pages[base].id : pages[this.pageIndex].id;
+        let toId = pages[target].id;
+        this.pageIndex = target;
         this._updateNav();
-        this.queueRepaint();
+        if (n > 1 && fromId !== toId && !opts.instant) {
+            this._startPageAnim(fromId, base, toId, target, dir);
+        } else {
+            this._cancelPageAnim();
+            this.queueRepaint();
+        }
     }
 
     nextPage() {
-        this.setPage(this.pageIndex + 1);
+        this.setPage((this._anim ? this._anim.toIdx : this.pageIndex) + 1, { dir: 1 });
     }
 
     prevPage() {
-        this.setPage(this.pageIndex - 1);
+        this.setPage((this._anim ? this._anim.toIdx : this.pageIndex) - 1, { dir: -1 });
+    }
+
+    _easeOutCubic(t) {
+        if (t <= 0) return 0;
+        if (t >= 1) return 1;
+        return 1 - Math.pow(1 - t, 3);
+    }
+
+    _startPageAnim(fromId, fromIdx, toId, toIdx, dir) {
+        this._anim = {
+            fromId: fromId,
+            fromIdx: fromIdx,
+            toId: toId,
+            toIdx: toIdx,
+            dir: dir >= 0 ? 1 : -1,
+            start: Date.now()
+        };
+        this._ensureAnimTimer();
+        this.queueRepaint();
+    }
+
+    _cancelPageAnim() {
+        this._anim = null;
+        if (this._animTimer) {
+            try { GLib.source_remove(this._animTimer); } catch (e) { /* ignore */ }
+            this._animTimer = null;
+        }
+    }
+
+    _ensureAnimTimer() {
+        if (this._animTimer) return;
+        try {
+            this._animTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
+                let done = true;
+                try {
+                    let now = Date.now();
+                    if (this._anim && now - this._anim.start < this._animDur)
+                        done = false;
+                    if (this._reveal && now - this._reveal.start < this._revealDur)
+                        done = false;
+                    this.queueRepaint();
+                } catch (e) { /* ignore */ }
+                if (done) {
+                    this._anim = null;
+                    this._reveal = null;
+                    this._animTimer = null;
+                    try { this.queueRepaint(); } catch (e) { /* ignore */ }
+                    return false;
+                }
+                return true;
+            });
+        } catch (e) { /* no animation without a main loop */ }
+    }
+
+    // Graceful unveil played when the popup opens: content rises slightly
+    // into place. Refresh ticks use queueRepaint() and never trigger this.
+    onPopupOpened() {
+        this._reveal = { start: Date.now() };
+        this._ensureAnimTimer();
+        this.queueRepaint();
+    }
+
+    _paintPageById(ctx, area, W, H, id) {
+        if (id === 'battery')
+            this._paintBattery(ctx, area, W, H);
+        else
+            this._paintOverview(ctx, area, W, H);
     }
 
     _updateNav() {
@@ -269,6 +371,8 @@ var Dashboard = class Dashboard {
     }
 
     _relayout() {
+        // A size change mid-flight would skew offsets; snap to the target.
+        this._cancelPageAnim();
         this.w = this.applet.popupWidth || 520;
         this.h = this.applet.popupHeight || 390;
         // The drawing area keeps the configured size so the existing
@@ -309,12 +413,78 @@ var Dashboard = class Dashboard {
         Draw.fillRoundRect(ctx, 0, 0, W, H, 16, Draw.PALETTE.background, 0.94);
         Draw.strokeRoundRect(ctx, 0.5, 0.5, W - 1, H - 1, 16, Draw.PALETTE.outlineVariant, 0.5, 1);
 
-        let page = this.currentPage();
-        if (page && page.id === 'battery')
-            this._paintBattery(ctx, area, W, H);
-        else
-            this._paintOverview(ctx, area, W, H);
+        let now = Date.now();
+        let slide = null;
+        if (this._anim) {
+            let t = (now - this._anim.start) / this._animDur;
+            if (t >= 1) {
+                this._anim = null;
+            } else if (t > 0 && this.getPageCount() > 1) {
+                slide = {
+                    eased: this._easeOutCubic(t),
+                    dir: this._anim.dir,
+                    fromId: this._anim.fromId,
+                    fromIdx: this._anim.fromIdx,
+                    toId: this._anim.toId,
+                    toIdx: this._anim.toIdx
+                };
+            } else if (t >= 0) {
+                this._anim = null;
+            }
+        }
+        let rise = 0;
+        if (this._reveal) {
+            let t = (now - this._reveal.start) / this._revealDur;
+            if (t >= 1) {
+                this._reveal = null;
+            } else if (t > 0) {
+                rise = (1 - this._easeOutCubic(t)) * this._revealTravel;
+            }
+        }
 
+        // Clip sliding content to the card so pages glide in/out from
+        // behind the rounded edges instead of overpainting them.
+        ctx.save();
+        try {
+            Draw.roundedRect(ctx, 0, 0, W, H, 16);
+            ctx.clip();
+        } catch (e) { /* draw unclipped rather than nothing */ }
+
+        if (slide) {
+            // Old page exits toward the swipe direction, new page enters
+            // from the opposite edge: next (dir +1) glides leftwards.
+            let offOld = -slide.dir * slide.eased * W;
+            let offNew = slide.dir * (1 - slide.eased) * W;
+            let saved = this.pageIndex;
+            try {
+                ctx.save();
+                ctx.translate(offOld + 0, rise);
+                try { this.pageIndex = slide.fromIdx; } catch (e) { /* ignore */ }
+                this._paintPageById(ctx, area, W, H, slide.fromId);
+                ctx.restore();
+            } catch (e) {
+                try { ctx.restore(); } catch (e2) { /* ignore */ }
+            }
+            try {
+                ctx.save();
+                ctx.translate(offNew + 0, rise);
+                try { this.pageIndex = slide.toIdx; } catch (e) { /* ignore */ }
+                this._paintPageById(ctx, area, W, H, slide.toId);
+                ctx.restore();
+            } catch (e) {
+                try { ctx.restore(); } catch (e2) { /* ignore */ }
+            }
+            try { this.pageIndex = saved; } catch (e) { /* ignore */ }
+        } else if (rise) {
+            ctx.translate(0, rise);
+            let page = this.currentPage();
+            this._paintPageById(ctx, area, W, H, page ? page.id : 'overview');
+        } else {
+            let page = this.currentPage();
+            this._paintPageById(ctx, area, W, H, page ? page.id : 'overview');
+        }
+
+        try { ctx.restore(); } catch (e) { /* ignore */ }
         ctx.restore();
     }
 

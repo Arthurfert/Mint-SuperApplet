@@ -4,10 +4,11 @@ const Draw = require('./lib/draw');
 // Mixed into Dashboard.prototype by lib/popup.js via Object.assign.
 // Expects the host to provide: this.applet, this._drawText, this._measureText.
 var OverviewPage = {
-    _paintOverview(ctx, area, W, H) {
+    _paintOverview(ctx, area, W, H, skipHeader) {
         let applet = this.applet;
 
-        let m = 14, gap = 10, headerH = 24, tempsH = 34;
+        let hg = this._headerGeom || { m: 14, gap: 10, h: 24 };
+        let m = hg.m, gap = hg.gap, headerH = hg.h, tempsH = 34;
         let hasTemps = !!applet.showTemps;
         let effTempsH = hasTemps ? tempsH : 0;
         let gaps = hasTemps ? 3 : 2;
@@ -19,7 +20,10 @@ var OverviewPage = {
         let colW = (W - 2 * m - gap) / 2;
 
         let y = m;
-        this._drawHeader(ctx, area, W, m, headerH);
+        // The top bar is drawn once by the Dashboard and stays static
+        // while pages slide; skip it here when painting a sliding body.
+        if (!skipHeader)
+            this._drawHeader(ctx, area, W, m, headerH);
         y += headerH + gap;
 
         if (applet.showCpu)

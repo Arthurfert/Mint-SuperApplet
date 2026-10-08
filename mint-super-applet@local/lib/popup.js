@@ -43,6 +43,11 @@ var Dashboard = class Dashboard {
         this._lastZonePress = 0;
         this._setupEdgeTracking();
 
+        // Shared top-bar geometry: the header (hostname, page dots,
+        // uptime) is identical on every page and stays static while only
+        // the body below it slides. Pages read this for their own layout
+        // so the header position can never drift out of sync.
+        this._headerGeom = { m: 14, h: 24, gap: 10 };
         // Page-switch slide animation + popup-open reveal animation.
         // Durations in ms; tuned to feel snappy without getting in the way.
         this._animDur = 260;
@@ -393,11 +398,11 @@ var Dashboard = class Dashboard {
         this.queueRepaint();
     }
 
-    _paintPageById(ctx, area, W, H, id) {
+    _paintPageById(ctx, area, W, H, id, skipHeader) {
         if (id === 'battery')
-            this._paintBattery(ctx, area, W, H);
+            this._paintBattery(ctx, area, W, H, skipHeader);
         else
-            this._paintOverview(ctx, area, W, H);
+            this._paintOverview(ctx, area, W, H, skipHeader);
     }
 
     _updateNav() {
@@ -451,6 +456,8 @@ var Dashboard = class Dashboard {
         Draw.fillRoundRect(ctx, 0, 0, W, H, 16, Draw.PALETTE.background, 0.94);
         Draw.strokeRoundRect(ctx, 0.5, 0.5, W - 1, H - 1, 16, Draw.PALETTE.outlineVariant, 0.5, 1);
 
+        let hg = this._headerGeom || { m: 14, gap: 10, h: 24 };
+
         let now = Date.now();
         let slide = null;
         if (this._anim) {
@@ -462,9 +469,7 @@ var Dashboard = class Dashboard {
                     eased: this._easeOutCubic(t),
                     dir: this._anim.dir,
                     fromId: this._anim.fromId,
-                    fromIdx: this._anim.fromIdx,
-                    toId: this._anim.toId,
-                    toIdx: this._anim.toIdx
+                    toId: this._anim.toId
                 };
             } else if (t >= 0) {
                 this._anim = null;
@@ -480,49 +485,60 @@ var Dashboard = class Dashboard {
             }
         }
 
-        // Clip sliding content to the card so pages glide in/out from
-        // behind the rounded edges instead of overpainting them.
-        ctx.save();
-        try {
-            Draw.roundedRect(ctx, 0, 0, W, H, 16);
-            ctx.clip();
-        } catch (e) { /* draw unclipped rather than nothing */ }
-
         if (slide) {
-            // Old page exits toward the swipe direction, new page enters
-            // from the opposite edge: next (dir +1) glides leftwards.
+            // The top bar is identical on every page, so it is drawn once
+            // and stays put (pageIndex already points at the target, hence
+            // the dots); only the bodies below it glide. Old body exits
+            // toward the swipe direction, new body enters from the
+            // opposite edge: next (dir +1) glides leftwards.
+            this._drawHeader(ctx, area, W, hg.m, hg.h);
+
+            // Confine sliding bodies below the header and inside the card
+            // so they pass behind the edges instead of overpainting them.
+            let bodyTop = hg.m + hg.h + 4;
+            ctx.save();
+            try {
+                Draw.roundedRect(ctx, 0, 0, W, H, 16);
+                ctx.clip();
+                ctx.rectangle(0, bodyTop, W, H - bodyTop);
+                ctx.clip();
+            } catch (e) { /* draw unclipped rather than nothing */ }
+
             let offOld = -slide.dir * slide.eased * W;
             let offNew = slide.dir * (1 - slide.eased) * W;
-            let saved = this.pageIndex;
             try {
                 ctx.save();
-                ctx.translate(offOld + 0, rise);
-                try { this.pageIndex = slide.fromIdx; } catch (e) { /* ignore */ }
-                this._paintPageById(ctx, area, W, H, slide.fromId);
+                ctx.translate(offOld, 0);
+                this._paintPageById(ctx, area, W, H, slide.fromId, true);
                 ctx.restore();
             } catch (e) {
                 try { ctx.restore(); } catch (e2) { /* ignore */ }
             }
             try {
                 ctx.save();
-                ctx.translate(offNew + 0, rise);
-                try { this.pageIndex = slide.toIdx; } catch (e) { /* ignore */ }
-                this._paintPageById(ctx, area, W, H, slide.toId);
+                ctx.translate(offNew, 0);
+                this._paintPageById(ctx, area, W, H, slide.toId, true);
                 ctx.restore();
             } catch (e) {
                 try { ctx.restore(); } catch (e2) { /* ignore */ }
             }
-            try { this.pageIndex = saved; } catch (e) { /* ignore */ }
-        } else if (rise) {
-            ctx.translate(0, rise);
-            let page = this.currentPage();
-            this._paintPageById(ctx, area, W, H, page ? page.id : 'overview');
+            try { ctx.restore(); } catch (e) { /* ignore */ }
         } else {
-            let page = this.currentPage();
-            this._paintPageById(ctx, area, W, H, page ? page.id : 'overview');
-        }
+            // Entrance reveal and steady state: header rides along with the
+            // content (rise) or everything is drawn plainly. Clip to the
+            // card so content never spills over the rounded corners.
+            ctx.save();
+            try {
+                Draw.roundedRect(ctx, 0, 0, W, H, 16);
+                ctx.clip();
+            } catch (e) { /* draw unclipped rather than nothing */ }
 
-        try { ctx.restore(); } catch (e) { /* ignore */ }
+            if (rise)
+                ctx.translate(0, rise);
+            let page = this.currentPage();
+            this._paintPageById(ctx, area, W, H, page ? page.id : 'overview', false);
+            try { ctx.restore(); } catch (e) { /* ignore */ }
+        }
         ctx.restore();
     }
 
@@ -545,23 +561,48 @@ var Dashboard = class Dashboard {
     _drawPageDots(ctx, area, W, y) {
         let n = this.getPageCount();
         if (n <= 1) return;
-        let parts = [];
+        // Stable slot layout measured with a single glyph so positions never
+        // shift depending on which dot is active.
         let widths = [];
         let gapPx = 6;
         let totalW = 0;
         for (let i = 0; i < n; i++) {
-            let t = (i === this.pageIndex) ? '●' : '○';
-            parts.push(t);
-            let [pw] = this._measureText(area, t, { size: 9, font: 'Sans' });
+            let [pw] = this._measureText(area, '○', { size: 9, font: 'Sans' });
             widths.push(pw);
             totalW += pw;
             if (i > 0) totalW += gapPx;
         }
+        let centers = [];
         let curX = Math.round(W / 2 - totalW / 2);
         for (let i = 0; i < n; i++) {
-            let color = (i === this.pageIndex) ? Draw.PALETTE.text : Draw.PALETTE.outline;
-            Draw.drawText(area, ctx, parts[i], curX, y, color, { size: 9, font: 'Sans' });
+            centers.push(curX + widths[i] / 2);
             curX += widths[i] + gapPx;
+        }
+
+        // Fluid traveler: while a page-switch animation runs, glide the
+        // filled dot from the old slot to the new one with the same easing
+        // as the sliding content, over a bed of outlines.
+        let traveler = null;
+        if (this._anim && this._animDur > 0) {
+            let t = (Date.now() - this._anim.start) / this._animDur;
+            if (t >= 0 && t < 1 &&
+                this._anim.fromIdx >= 0 && this._anim.fromIdx < n &&
+                this._anim.toIdx >= 0 && this._anim.toIdx < n) {
+                let e = this._easeOutCubic(t);
+                traveler = centers[this._anim.fromIdx] +
+                    (centers[this._anim.toIdx] - centers[this._anim.fromIdx]) * e;
+            }
+        }
+
+        for (let i = 0; i < n; i++) {
+            let isActive = (traveler === null && i === this.pageIndex);
+            Draw.drawText(area, ctx, isActive ? '●' : '○', centers[i], y,
+                isActive ? Draw.PALETTE.text : Draw.PALETTE.outline,
+                { size: 9, font: 'Sans', align: 'center' });
+        }
+        if (traveler !== null) {
+            Draw.drawText(area, ctx, '●', traveler, y, Draw.PALETTE.text,
+                { size: 9, font: 'Sans', align: 'center' });
         }
     }
 

@@ -126,9 +126,13 @@ var BatteryPage = {
         return 22;
     },
 
-    _paintBattery(ctx, area, W, H) {
-        let m = 14, gap = 10, headerH = 24;
-        this._drawHeader(ctx, area, W, m, headerH);
+    _paintBattery(ctx, area, W, H, skipHeader) {
+        let hg = this._headerGeom || { m: 14, gap: 10, h: 24 };
+        let m = hg.m, gap = hg.gap, headerH = hg.h;
+        // The top bar is drawn once by the Dashboard and stays static
+        // while pages slide; skip it here when painting a sliding body.
+        if (!skipHeader)
+            this._drawHeader(ctx, area, W, m, headerH);
         let y = m + headerH + gap;
         let contentH = H - (2 * m + headerH + gap);
         if (contentH < 40) contentH = 40;

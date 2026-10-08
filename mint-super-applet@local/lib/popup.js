@@ -25,7 +25,8 @@ var Dashboard = class Dashboard {
             x_expand: true,
             y_expand: true,
             reactive: true,
-            track_hover: true
+            track_hover: true,
+            can_focus: true
         });
         this.container.add_actor(this.area);
 
@@ -77,6 +78,9 @@ var Dashboard = class Dashboard {
             c.connect('button-press-event', (actor, event) => {
                 return this._handlePress(event);
             });
+            c.connect('key-press-event', (actor, event) => {
+                return this._handleKeyPress(event);
+            });
         } catch (e) { /* ignore */ }
         // NOTE: the arrows are intentionally non-reactive (see _makeNavButton):
         // pointer events pass straight through them to the container, so no
@@ -111,8 +115,40 @@ var Dashboard = class Dashboard {
         }
     }
 
+    _grabKeyFocus() {
+        try {
+            if (this.container && typeof this.container.grab_key_focus === 'function')
+                this.container.grab_key_focus();
+        } catch (e) { /* keyboard nav just won't engage */ }
+    }
+
+    _handleKeyPress(event) {
+        if (!event || this.getPageCount() <= 1) return false;
+        let sym = 0;
+        try { sym = event.get_key_symbol(); } catch (e) { return false; }
+        // Keypad arrows produce distinct keysyms; treat them the same.
+        let left = [0xff51, 0xff96]; // Left, KP_Left
+        let right = [0xff53, 0xff98]; // Right, KP_Right
+        try {
+            let Clutter = imports.gi.Clutter;
+            left = [Clutter.KEY_Left, Clutter.KEY_KP_Left];
+            right = [Clutter.KEY_Right, Clutter.KEY_KP_Right];
+        } catch (e) { /* fall back to the raw keysyms above */ }
+        if (left.indexOf(sym) >= 0) {
+            this.prevPage();
+            return true;
+        }
+        if (right.indexOf(sym) >= 0) {
+            this.nextPage();
+            return true;
+        }
+        return false;
+    }
+
     _handlePress(event) {
         if (!event || this.getPageCount() <= 1) return false;
+        // Any click inside the popup (re)focuses it for arrow-key nav.
+        this._grabKeyFocus();
         let button = 1;
         try { button = event.get_button(); } catch (e) { /* assume primary */ }
         if (button !== 1) return false;
@@ -352,6 +388,8 @@ var Dashboard = class Dashboard {
     onPopupOpened() {
         this._reveal = { start: Date.now() };
         this._ensureAnimTimer();
+        // Focus the popup so Left/Right arrows switch pages while open.
+        this._grabKeyFocus();
         this.queueRepaint();
     }
 

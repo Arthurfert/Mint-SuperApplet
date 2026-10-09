@@ -78,6 +78,11 @@
         "default": true,
         "description": "Show battery health page (switch with side arrows)"
     },
+    "show-media-page": {
+        "type": "switch",
+        "default": true,
+        "description": "Show media controller page (switch with side arrows)"
+    },
     "head-panel": {
         "type": "header",
         "description": "Panel indicator"

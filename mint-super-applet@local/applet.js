@@ -8,6 +8,7 @@ const UUID = 'mint-super-applet@local';
 
 const Draw = require('./lib/draw');
 const Providers = require('./lib/providers');
+const Media = require('./lib/media');
 const Dashboard = require('./lib/popup').Dashboard;
 
 class MintSuperApplet extends Applet.Applet {
@@ -31,6 +32,7 @@ class MintSuperApplet extends Applet.Applet {
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-disk', 'showDisk', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-temps', 'showTemps', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-battery-page', 'showBatteryPage', this._onSettingsChanged, null);
+        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-media-page', 'showMediaPage', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-cpu', 'panelShowCpu', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-memory', 'panelShowMemory', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'color-primary', 'colorPrimary', this._onSettingsChanged, null);
@@ -55,6 +57,11 @@ class MintSuperApplet extends Applet.Applet {
         };
         this.providers.temp.onChange = () => this._repaintAll();
         this.providers.battery.onChange = () => this._repaintAll();
+
+        this.media = new Media.MediaMonitor();
+        this.media.onChange = () => this._repaintAll();
+        this.outputVolume = new Media.OutputVolume();
+        this.outputVolume.onChange = () => this._repaintAll();
 
         this._panelArea = new St.DrawingArea();
         this._panelArea.connect('repaint', () => this._paintPanel(this._panelArea));
@@ -107,6 +114,12 @@ class MintSuperApplet extends Applet.Applet {
         this.providers.disk.tick();
         if (this.providers.battery)
             this.providers.battery.tick();
+        try {
+            if (this.media) this.media.tick();
+        } catch (e) { /* keep last media state */ }
+        try {
+            if (this.outputVolume) this.outputVolume.tick();
+        } catch (e) { /* keep last volume state */ }
         this._setTooltip();
         this._repaintAll();
     }
@@ -120,6 +133,11 @@ class MintSuperApplet extends Applet.Applet {
 
     _setTooltip() {
         let parts = [];
+        try {
+            let md = this.media && this.media.data;
+            if (md && md.hasPlayer && md.status === 'Playing' && md.title)
+                parts.push('\u266A ' + md.title + (md.artist ? ' \u2014 ' + md.artist : ''));
+        } catch (e) { /* ignore */ }
         parts.push('CPU ' + Math.round(this.providers.cpu.lastTotal) + '%');
         let mem = this.providers.mem.data;
         if (mem && mem.total)

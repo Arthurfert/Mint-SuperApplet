@@ -4,6 +4,7 @@ const Draw = require('./lib/draw');
 const Providers = require('./lib/providers');
 const OverviewPage = require('./lib/popup-overview').OverviewPage;
 const BatteryPage = require('./lib/popup-battery').BatteryPage;
+const MediaPage = require('./lib/popup-media').MediaPage;
 
 var Dashboard = class Dashboard {
     constructor(applet) {
@@ -41,6 +42,8 @@ var Dashboard = class Dashboard {
         this._navHoverLeft = false;
         this._navHoverRight = false;
         this._lastZonePress = 0;
+        // Volume-bar drag state for the media page.
+        this._volDrag = false;
         this._setupEdgeTracking();
 
         // Shared top-bar geometry: the header (hostname, page dots,
@@ -71,7 +74,19 @@ var Dashboard = class Dashboard {
         if (!c) return;
         try {
             c.connect('motion-event', (actor, event) => {
+                // A volume drag on the media page takes over motion events.
+                if (this._volDrag) {
+                    this._mediaDragTo(event);
+                    return;
+                }
                 this._checkEdgeHover(event);
+            });
+            c.connect('button-release-event', (actor, event) => {
+                if (this._volDrag) {
+                    this._volDrag = false;
+                    return true;
+                }
+                return false;
             });
             c.connect('leave-event', () => {
                 this._setNavHover(false, false);
@@ -92,8 +107,8 @@ var Dashboard = class Dashboard {
         // per-button hover handlers are needed here.
     }
 
-    _localX(event) {
-        // Container-local logical x for an event, or null if unmappable.
+    _eventPoint(event) {
+        // Container-local logical [x, y] for an event, or null if unmappable.
         // get_coords() is in stage coordinates; map them onto the container.
         if (!event || !this.container) return null;
         let coords = null;
@@ -107,7 +122,17 @@ var Dashboard = class Dashboard {
         } catch (e) { return null; }
         if (!point || !point[0]) return null;
         let scale = global.ui_scale || 1;
-        return point[1] / scale;
+        return [point[1] / scale, point[2] / scale];
+    }
+
+    _localX(event) {
+        let p = this._eventPoint(event);
+        return p ? p[0] : null;
+    }
+
+    _localY(event) {
+        let p = this._eventPoint(event);
+        return p ? p[1] : null;
     }
 
     _checkEdgeHover(event) {
@@ -147,16 +172,99 @@ var Dashboard = class Dashboard {
             this.nextPage();
             return true;
         }
+        // Space toggles play/pause while the media page is showing.
+        let space = 0x20;
+        try {
+            let Clutter = imports.gi.Clutter;
+            space = Clutter.KEY_space;
+        } catch (e) { /* fall back to the raw keysym above */ }
+        if (sym === space) {
+            try {
+                let page = this.currentPage();
+                if (page && page.id === 'media' && this.applet && this.applet.media) {
+                    this.applet.media.playPause();
+                    return true;
+                }
+            } catch (e) { /* ignore */ }
+        }
         return false;
     }
 
+    _onMediaControl(action) {
+        // Dispatch a media-page control hit. Returns true when handled.
+        try {
+            let monitor = this.applet && this.applet.media;
+            let vol = this.applet && this.applet.outputVolume;
+            if (action === 'prev' && monitor) {
+                monitor.previous();
+                return true;
+            }
+            if (action === 'play' && monitor) {
+                monitor.playPause();
+                return true;
+            }
+            if (action === 'next' && monitor) {
+                monitor.next();
+                return true;
+            }
+            if (action === 'mute' && vol) {
+                vol.toggleMute();
+                return true;
+            }
+            if (action && action.vol && vol) {
+                // Volume drag starts; motion events take it from here.
+                this._volDrag = true;
+                return true;
+            }
+        } catch (e) { /* ignore */ }
+        return false;
+    }
+
+    _mediaPressHit(event) {
+        // Hit-test media controls when the media page is showing. Runs
+        // before the edge-zone page switch so interior controls win.
+        try {
+            let page = this.currentPage();
+            if (!page || page.id !== 'media') return false;
+            let p = this._eventPoint(event);
+            if (!p) return false;
+            let action = this._mediaHitTest(p[0], p[1]);
+            if (!action) return false;
+            if (action.vol && this.applet && this.applet.outputVolume) {
+                let f = this._mediaVolFractionFromY(p[1]);
+                if (f !== null)
+                    this.applet.outputVolume.setFraction(f);
+            }
+            return this._onMediaControl(action);
+        } catch (e) { return false; }
+    }
+
+    _mediaDragTo(event) {
+        try {
+            let page = this.currentPage();
+            if (!page || page.id !== 'media') {
+                this._volDrag = false;
+                return;
+            }
+            let p = this._eventPoint(event);
+            if (!p) return;
+            let f = this._mediaVolFractionFromY(p[1]);
+            if (f !== null && this.applet && this.applet.outputVolume) {
+                this.applet.outputVolume.setFraction(f);
+                this.queueRepaint();
+            }
+        } catch (e) { /* ignore */ }
+    }
+
     _handlePress(event) {
-        if (!event || this.getPageCount() <= 1) return false;
+        if (!event) return false;
         // Any click inside the popup (re)focuses it for arrow-key nav.
         this._grabKeyFocus();
         let button = 1;
         try { button = event.get_button(); } catch (e) { /* assume primary */ }
         if (button !== 1) return false;
+        if (this._mediaPressHit(event)) return true;
+        if (this.getPageCount() <= 1) return false;
         let x = this._localX(event);
         if (x === null) return false;
         if (x < this.EDGE_ZONE) {
@@ -277,10 +385,13 @@ var Dashboard = class Dashboard {
     }
 
     _pages() {
-        // Overview is always present; battery page is optional via settings.
+        // Overview is always present; battery and media pages are optional
+        // via settings.
         let pages = [{ id: 'overview', title: 'Overview' }];
         if (this.applet.showBatteryPage !== false)
             pages.push({ id: 'battery', title: 'Battery' });
+        if (this.applet.showMediaPage !== false)
+            pages.push({ id: 'media', title: 'Media' });
         return pages;
     }
 
@@ -297,6 +408,8 @@ var Dashboard = class Dashboard {
 
     setPage(i, opts) {
         opts = opts || {};
+        // Leaving the page ends any volume drag in progress.
+        this._volDrag = false;
         let n = this.getPageCount();
         if (n <= 0) return;
         let target = ((i % n) + n) % n;
@@ -356,6 +469,7 @@ var Dashboard = class Dashboard {
     }
 
     _cancelPageAnim() {
+        this._volDrag = false;
         this._anim = null;
         if (this._animTimer) {
             try { GLib.source_remove(this._animTimer); } catch (e) { /* ignore */ }
@@ -401,6 +515,8 @@ var Dashboard = class Dashboard {
     _paintPageById(ctx, area, W, H, id, skipHeader) {
         if (id === 'battery')
             this._paintBattery(ctx, area, W, H, skipHeader);
+        else if (id === 'media')
+            this._paintMedia(ctx, area, W, H, skipHeader);
         else
             this._paintOverview(ctx, area, W, H, skipHeader);
     }
@@ -615,4 +731,4 @@ var Dashboard = class Dashboard {
 
 // Page content lives in dedicated modules; mix their methods in so existing
 // calls like this._paintOverview(...) / this._paintBattery(...) keep working.
-Object.assign(Dashboard.prototype, OverviewPage, BatteryPage);
+Object.assign(Dashboard.prototype, OverviewPage, BatteryPage, MediaPage);

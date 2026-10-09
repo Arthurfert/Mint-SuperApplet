@@ -13,11 +13,15 @@ Right now it features :
   - Battery life
   - Battery health (percentage left from designed, cycles)
   - Battery current specs (voltage, power...)
+- **Media Control** page with :
+  - Media info (cover, title, timing...)
+  - Pause, skip/back arrows buttons
+  - Volume control
 
 It will then improve gradually, with :
 
 - Weather forecast
-- Media player
+- And more !
 
 All in one "**Super-Applet**" !
 

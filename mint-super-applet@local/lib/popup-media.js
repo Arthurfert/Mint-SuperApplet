@@ -59,43 +59,28 @@ var MediaPage = {
 
         let d = this._mediaData();
         if (!d || !d.hasPlayer) {
-            this._mediaHit = null;
-            this._drawMediaEmpty(ctx, area, m, y, W - 2 * m, contentH,
-                this._mediaEmptyMessage());
-            return;
+            // No player, no problem: the page still renders (placeholder
+            // cover, dimmed transport) with fully working volume controls,
+            // which don't depend on MPRIS.
+            d = {
+                hasPlayer: false,
+                busName: null,
+                identity: null,
+                displayName: null,
+                status: 'Stopped',
+                title: null,
+                artist: null,
+                album: null,
+                artUrl: null,
+                artPixbuf: null,
+                lengthU: 0,
+                positionU: 0,
+                canPlay: false,
+                canGoNext: false,
+                canGoPrev: false
+            };
         }
         this._drawMediaHero(ctx, area, m, y, W - 2 * m, contentH, d);
-    },
-
-    // Second line of the empty state reflects what the monitor actually
-    // sees on the session bus, so "no data" is diagnosable at a glance.
-    _mediaEmptyMessage() {
-        let fallback = 'Play something in a supported app (Spotify, VLC, browser…).';
-        try {
-            let m = this.applet && this.applet.media;
-            let dg = (m && typeof m.diag === 'function') ? m.diag() : null;
-            if (!dg) return fallback;
-            if (!dg.busOk) {
-                let extra = dg.lastError ? ' (' + dg.lastError + ')' : '';
-                return 'Session bus unavailable' + extra + '.';
-            }
-            if (!dg.busCount) return 'No MPRIS players on the session bus. ' + fallback;
-            let short = (dg.buses || []).map(
-                b => String(b).replace(/^org\.mpris\.MediaPlayer2\./, '').substring(0, 24));
-            return 'Found ' + dg.busCount + ' player bus name(s) (' + short.join(', ') +
-                ') but got no data from them.';
-        } catch (e) { return fallback; }
-    },
-
-    _drawMediaEmpty(ctx, area, x, y, w, h, msg) {
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
-        Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
-        let cx = x + w / 2;
-        this._drawText(area, ctx, 'NO MEDIA PLAYER', cx, y + Math.round(h / 2) - 14,
-            Draw.PALETTE.text, { size: 13, weight: 'bold', align: 'center', font: 'Sans' });
-        this._drawText(area, ctx, msg || 'Play something in a supported app (Spotify, VLC, browser…).',
-            cx, y + Math.round(h / 2) + 8,
-            Draw.PALETTE.textVariant, { size: 9, align: 'center', font: 'Sans' });
     },
 
     _drawMediaHero(ctx, area, x, y, w, h, d) {
@@ -106,7 +91,7 @@ var MediaPage = {
         let vol = this._mediaVol();
 
         // Identity line: player on the left, status on the right.
-        this._drawText(area, ctx, (d.displayName || 'Player').toUpperCase(),
+        this._drawText(area, ctx, (d.displayName || 'Media').toUpperCase(),
             x + 10, y + 5, Draw.PALETTE.textVariant, { size: 9, weight: 'bold' });
         let stColor = this._mediaStatusColor(d.status);
         this._drawText(area, ctx, d.status || 'Stopped', x + w - 10, y + 4,
@@ -134,7 +119,7 @@ var MediaPage = {
         // Track info between art and volume column.
         let infoX = artX + artS + 14;
         let infoW = Math.max(40, mainRight - infoX);
-        let title = d.title || 'Nothing playing';
+        let title = d.title || (d.hasPlayer ? 'Nothing playing' : 'No media');
         this._drawText(area, ctx, title, infoX, yTop + 2, Draw.PALETTE.text,
             { size: 15, weight: 'bold', width: infoW, ellipsize: true });
         if (d.artist)
@@ -160,7 +145,8 @@ var MediaPage = {
         this._drawTransportButton(ctx, mainCx + spread, transCy, sideR,
             'next', d.canGoNext);
         this._drawTransportButton(ctx, mainCx, transCy, playR,
-            playing ? 'pause' : 'play', d.canPlay || playing || !d.title);
+            playing ? 'pause' : 'play',
+            d.hasPlayer && (d.canPlay || playing || !d.title));
 
         // Progress bar with elapsed / total (clear of the transport row).
         let progY = y + h - pad - 12;

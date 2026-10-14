@@ -455,6 +455,12 @@ var Dashboard = class Dashboard {
         return 1 - Math.pow(1 - t, 3);
     }
 
+    _setRevealOpacity(v) {
+        try {
+            if (this.container) this.container.opacity = v;
+        } catch (e) { /* ignore */ }
+    }
+
     _startPageAnim(fromId, fromIdx, toId, toIdx, dir) {
         this._anim = {
             fromId: fromId,
@@ -486,8 +492,19 @@ var Dashboard = class Dashboard {
                     let now = Date.now();
                     if (this._anim && now - this._anim.start < this._animDur)
                         done = false;
-                    if (this._reveal && now - this._reveal.start < this._revealDur)
-                        done = false;
+                    // Drive the reveal fade here, NOT in _paint: an actor at
+                    // opacity 0 is culled from paint traversal, so a fade
+                    // driven by paint callbacks would never begin.
+                    if (this._reveal) {
+                        let t = (now - this._reveal.start) / this._revealDur;
+                        if (t >= 1) {
+                            this._reveal = null;
+                            this._setRevealOpacity(255);
+                        } else {
+                            done = false;
+                            this._setRevealOpacity(t > 0 ? Math.round(this._easeOutCubic(t) * 255) : 0);
+                        }
+                    }
                     this.queueRepaint();
                 } catch (e) { /* ignore */ }
                 if (done) {
@@ -502,11 +519,22 @@ var Dashboard = class Dashboard {
         } catch (e) { /* no animation without a main loop */ }
     }
 
-    // Graceful unveil played when the popup opens: content rises slightly
-    // into place. Refresh ticks use queueRepaint() and never trigger this.
-    onPopupOpened() {
-        this._reveal = { start: Date.now() };
-        this._ensureAnimTimer();
+    // Graceful unveil played when the popup opens: content fades in while
+    // rising slightly into place. Refresh ticks use queueRepaint() and never
+    // trigger this. opts.duration (ms) sets the pace; 0 (or missing) is
+    // instant. Only our own container's opacity is touched here, never the
+    // menu shell actor (Cinnamon animates that one itself).
+    onPopupOpened(opts) {
+        let dur = opts && isFinite(Number(opts.duration)) ? Math.round(Number(opts.duration)) : 0;
+        if (dur > 0) {
+            this._revealDur = Math.min(1000, dur);
+            this._setRevealOpacity(0);
+            this._reveal = { start: Date.now() };
+            this._ensureAnimTimer();
+        } else {
+            this._reveal = null;
+            this._setRevealOpacity(255);
+        }
         // Focus the popup so Left/Right arrows switch pages while open.
         this._grabKeyFocus();
         this.queueRepaint();

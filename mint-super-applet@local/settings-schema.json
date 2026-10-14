@@ -39,6 +39,30 @@
         "units": "px",
         "description": "Base font size"
     },
+    "popup-open-on-hover": {
+        "type": "switch",
+        "default": true,
+        "description": "Open popup when hovering the panel indicator"
+    },
+    "popup-hover-delay": {
+        "type": "spinbutton",
+        "default": 400,
+        "min": 0,
+        "max": 2000,
+        "step": 50,
+        "units": "ms",
+        "description": "Hover delay before opening popup",
+        "dependency": "popup-open-on-hover"
+    },
+    "popup-open-duration": {
+        "type": "spinbutton",
+        "default": 280,
+        "min": 0,
+        "max": 1000,
+        "step": 20,
+        "units": "ms",
+        "description": "Popup opening animation duration (0 = instant)"
+    },
     "head-sections": {
         "type": "header",
         "description": "Sections"
@@ -96,6 +120,16 @@
         "type": "switch",
         "default": true,
         "description": "Show memory mini-bar in panel"
+    },
+    "panel-show-clock": {
+        "type": "switch",
+        "default": false,
+        "description": "Show date and time in panel"
+    },
+    "panel-clock-format": {
+        "type": "entry",
+        "default": "%A %e %B, %H:%M",
+        "description": "Date/time format (strftime, locale-aware). E.g. %A %e %B, %H:%M → Wednesday 14 october, 13:43"
     },
     "head-colors": {
         "type": "header",

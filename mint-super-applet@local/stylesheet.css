@@ -62,3 +62,15 @@
     size: 20px;
     font-size: 20px;
 }
+
+/* Mint SuperApplet - panel indicator (rings + optional clock).
+ * The clock intentionally inherits the panel theme text color so it
+ * matches the default Cinnamon clock. */
+.msa-panel-box {
+    spacing: 6px;
+}
+
+.msa-panel-clock {
+    padding-left: 2px;
+    padding-right: 2px;
+}

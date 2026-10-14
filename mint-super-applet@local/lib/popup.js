@@ -598,7 +598,6 @@ var Dashboard = class Dashboard {
         let W = this.w, H = this.h;
 
         Draw.fillRoundRect(ctx, 0, 0, W, H, 16, Draw.PALETTE.background, 0.94);
-        Draw.strokeRoundRect(ctx, 0.5, 0.5, W - 1, H - 1, 16, Draw.PALETTE.outlineVariant, 0.5, 1);
 
         let hg = this._headerGeom || { m: 14, gap: 10, h: 24 };
 

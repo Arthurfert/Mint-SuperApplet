@@ -1,20 +1,30 @@
-/* Mint SuperApplet - scoped to this applet's popup only */
-
-.applet-popup,
-.applet-popup .popup-menu-content {
+/* Mint SuperApplet - scoped to this applet's popup only.
+ * The doubled-up selectors (.menu.applet-popup ...) intentionally outrank the
+ * theme's `.menu .popup-menu-content` frame (12px light background + padding)
+ * regardless of stylesheet load order, so only the dashboard canvas shows. */
+.menu.applet-popup {
     background-color: transparent;
+    background-gradient-direction: none;
     border: 0px;
+    border-image: none;
     border-radius: 16px;
     padding: 0px;
     margin: 0px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
-.applet-popup .popup-menu-content {
+.menu.applet-popup .popup-menu-content {
+    background-color: transparent;
+    background-gradient-direction: none;
+    border: 0px;
+    border-image: none;
+    border-radius: 16px;
     padding: 0px;
+    margin: 0px;
+    box-shadow: none;
 }
 
-.applet-popup .popup-menu-item {
+.menu.applet-popup .popup-menu-item {
     background-color: transparent;
     border-radius: 8px;
 }

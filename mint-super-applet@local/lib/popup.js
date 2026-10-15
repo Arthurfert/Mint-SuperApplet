@@ -1,7 +1,6 @@
 const St = imports.gi.St;
 const GLib = imports.gi.GLib;
 const Draw = require('./lib/draw');
-const Providers = require('./lib/providers');
 const OverviewPage = require('./lib/popup-overview').OverviewPage;
 const BatteryPage = require('./lib/popup-battery').BatteryPage;
 const MediaPage = require('./lib/popup-media').MediaPage;
@@ -686,19 +685,9 @@ var Dashboard = class Dashboard {
     }
 
     _drawHeader(ctx, area, W, m, headerH) {
-        let host = GLib.get_host_name();
-        this._drawText(area, ctx, '●  ' + host, m, m + 5, Draw.PALETTE.text,
-            { size: 11, weight: 'bold', font: 'Sans' });
-
-        // Page dots in the middle when more than one page exists.
+        // Dots only, centered; shown when more than one page exists.
         if (this.getPageCount() > 1)
             this._drawPageDots(ctx, area, W, m + 7);
-
-        let up = Draw.formatUptime(this._uptimeSeconds());
-        let right = up ? 'Uptime : ' + up : '';
-        if (right)
-            this._drawText(area, ctx, right, W - m, m + 7, Draw.PALETTE.textVariant,
-                { size: 9.5, align: 'right' });
     }
 
     _drawPageDots(ctx, area, W, y) {
@@ -749,11 +738,6 @@ var Dashboard = class Dashboard {
         }
     }
 
-    _uptimeSeconds() {
-        let d = Providers.readFile('/proc/uptime');
-        if (!d) return 0;
-        return parseFloat(d.trim().split(/\s+/)[0]) || 0;
-    }
 };
 
 // Page content lives in dedicated modules; mix their methods in so existing

@@ -149,21 +149,23 @@ var MediaPage = {
             d.hasPlayer && (d.canPlay || playing || !d.title));
 
         // Progress bar with elapsed / total (clear of the transport row).
+        // Always drawn so the layout never jumps: idle states (no player,
+        // stopped, unknown duration) show an empty track with 0:00 / 0:00.
         let progY = y + h - pad - 12;
-        if (d.lengthU > 0) {
-            let bx = x + pad, bw = mainRight - bx;
-            if (bw > 40) {
-                let frac = Math.max(0, Math.min(1, d.positionU / d.lengthU));
-                Draw.fillRoundRect(ctx, bx, progY, bw, 6, 3, Draw.PALETTE.surfaceHigh, 1);
-                if (frac > 0.005)
-                    Draw.fillRoundRect(ctx, bx, progY, Math.max(6, Math.round(bw * frac)),
-                        6, 3, Draw.PALETTE.primary, 1);
-                this._drawText(area, ctx, this._fmtMediaTime(d.positionU),
-                    bx, progY - 15, Draw.PALETTE.textVariant, { size: 7.5 });
-                this._drawText(area, ctx, this._fmtMediaTime(d.lengthU),
-                    bx + bw, progY - 15, Draw.PALETTE.textVariant,
-                    { size: 7.5, align: 'right' });
-            }
+        let bx = x + pad, bw = mainRight - bx;
+        if (bw > 40) {
+            let frac = d.lengthU > 0
+                ? Math.max(0, Math.min(1, d.positionU / d.lengthU))
+                : 0;
+            Draw.fillRoundRect(ctx, bx, progY, bw, 6, 3, Draw.PALETTE.surfaceHigh, 1);
+            if (frac > 0.005)
+                Draw.fillRoundRect(ctx, bx, progY, Math.max(6, Math.round(bw * frac)),
+                    6, 3, Draw.PALETTE.primary, 1);
+            this._drawText(area, ctx, this._fmtMediaTime(d.positionU),
+                bx, progY - 15, Draw.PALETTE.textVariant, { size: 7.5 });
+            this._drawText(area, ctx, this._fmtMediaTime(d.lengthU),
+                bx + bw, progY - 15, Draw.PALETTE.textVariant,
+                { size: 7.5, align: 'right' });
         }
 
         // Volume column: mute toggle on top, vertical bar, percent below.

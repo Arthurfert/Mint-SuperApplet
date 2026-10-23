@@ -9,7 +9,7 @@ var Dashboard = class Dashboard {
     constructor(applet) {
         this.applet = applet;
         this.w = 520;
-        this.h = 440;
+        this.h = 340;
         this.pageIndex = 0;
         // Width of the invisible edge hover zone (logical px) that reveals an arrow.
         this.EDGE_ZONE = 56;
@@ -560,7 +560,7 @@ var Dashboard = class Dashboard {
         // A size change mid-flight would skew offsets; snap to the target.
         this._cancelPageAnim();
         this.w = this.applet.popupWidth || 520;
-        this.h = this.applet.popupHeight || 390;
+        this.h = this.applet.popupHeight || 340;
         // The drawing area keeps the configured size so the existing
         // overview layout is pixel-identical; nav arrows float above it.
         this.area.width = Math.max(1, Math.round(this.w * global.ui_scale));

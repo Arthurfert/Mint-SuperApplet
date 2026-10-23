@@ -23,7 +23,7 @@
     },
     "popup-height": {
         "type": "spinbutton",
-        "default": 440,
+        "default": 340,
         "min": 280,
         "max": 700,
         "step": 10,

@@ -107,7 +107,9 @@ var OverviewPage = {
 
     _drawCoreGrid(ctx, area, cores, x, y, w, h) {
         if (!cores || !cores.length) return;
-        let cols = 2;
+        // Adaptive columns cap the grid at ~6 rows so the per-core bars
+        // stay readable on many-core CPUs in the compact popup height.
+        let cols = Math.max(2, Math.min(4, Math.ceil(cores.length / 6)));
         let rows = Math.ceil(cores.length / cols);
         let cw = w / cols;
         let ch = h / rows;

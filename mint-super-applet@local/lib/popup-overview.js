@@ -312,17 +312,23 @@ var OverviewPage = {
         let temp = this.applet.providers.temp;
         Draw.fillRoundRect(ctx, x, y, w, h, Draw.RADIUS, Draw.PALETTE.surface, 1);
 
-        this._drawText(area, ctx, 'Temps', x + 10, y + Math.round((h - 9) / 2) + 1,
-            Draw.PALETTE.textVariant, { size: 9.5, weight: 'bold', font: 'Sans' });
+        let labelS = 9.5;
+        let [, labelH] = this._measureText(area, 'Temps',
+            { size: labelS, weight: 'bold', font: 'Sans' });
+        this._drawText(area, ctx, 'Temps', x + 10, y + Math.round((h - labelH) / 2),
+            Draw.PALETTE.textVariant, { size: labelS, weight: 'bold', font: 'Sans' });
 
         let ax = x + 10 + 48;
         let sensors = temp.cpus.concat(temp.gpus);
         for (let s of sensors)
             ax = this._tempPill(ctx, area, ax, y, h, s.label, s.temp);
 
-        if (!sensors.length)
-            this._drawText(area, ctx, 'no sensors found', x + 10 + 48, y + Math.round((h - 9) / 2) + 1,
+        if (!sensors.length) {
+            let [, emptyH] = this._measureText(area, 'no sensors found', { size: 8.5 });
+            this._drawText(area, ctx, 'no sensors found', x + 10 + 48,
+                y + Math.round((h - emptyH) / 2),
                 Draw.PALETTE.outline, { size: 8.5 });
+        }
     },
 
     _tempPill(ctx, area, x, y, h, label, temp) {

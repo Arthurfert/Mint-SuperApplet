@@ -227,9 +227,13 @@ var BatteryPage = {
         let ringCy = top + Math.round(mainH / 2) - 10;
         Draw.drawRing(ctx, leftCx, ringCy, ringR, ringTh, (pct || 0) / 100,
             ringColor, Draw.PALETTE.surfaceHigh);
-        this._drawText(area, ctx, this._fmtPct(pct), leftCx, ringCy - 13,
+        let pctT = this._fmtPct(pct);
+        let [, pctH] = this._measureText(area, pctT, { size: 28, weight: 'bold' });
+        let [, chargeH] = this._measureText(area, 'CHARGE', { size: 9 });
+        let pctTop = ringCy - Math.round((pctH + 2 + chargeH) / 2);
+        this._drawText(area, ctx, pctT, leftCx, pctTop,
             Draw.PALETTE.text, { size: 28, weight: 'bold', align: 'center' });
-        this._drawText(area, ctx, 'CHARGE', leftCx, ringCy + 14,
+        this._drawText(area, ctx, 'CHARGE', leftCx, pctTop + pctH + 2,
             Draw.PALETTE.textVariant, { size: 9, align: 'center' });
         let timeText = this._batteryTimeText(d);
         this._drawText(area, ctx, timeText || this._fmtWatts(d.powerW), leftCx, ringCy + ringR + 12,

@@ -221,6 +221,9 @@ var MediaPage = {
 
     _drawSpeakerIcon(ctx, cx, cy, s, hex, muted) {
         try {
+            // Speaker body plus waves sit right of the anchor; shift left so
+            // the whole glyph is centered on its circle.
+            cx -= s * 0.22;
             Draw.setSourceHex(ctx, hex, 1);
             ctx.newPath();
             ctx.moveTo(cx - s * 0.9, cy - s * 0.45);
@@ -274,14 +277,17 @@ var MediaPage = {
                     ctx.fill();
                 } else {
                     let dir = (kind === 'prev') ? -1 : 1;
+                    // Nudge the bar+triangle pair so the glyph sits centered
+                    // in the circular button.
+                    let ox = -dir * r * 0.185;
                     ctx.newPath();
-                    ctx.rectangle(cx + dir * r * 0.45 - (dir > 0 ? 0 : r * 0.22),
+                    ctx.rectangle(cx + ox + dir * r * 0.45 - (dir > 0 ? 0 : r * 0.22),
                         cy - r * 0.35, r * 0.22, r * 0.7);
                     ctx.fill();
                     ctx.newPath();
-                    ctx.moveTo(cx - dir * r * 0.3, cy - r * 0.38);
-                    ctx.lineTo(cx - dir * r * 0.3, cy + r * 0.38);
-                    ctx.lineTo(cx + dir * r * 0.35, cy);
+                    ctx.moveTo(cx + ox - dir * r * 0.3, cy - r * 0.38);
+                    ctx.lineTo(cx + ox - dir * r * 0.3, cy + r * 0.38);
+                    ctx.lineTo(cx + ox + dir * r * 0.35, cy);
                     ctx.closePath();
                     ctx.fill();
                 }

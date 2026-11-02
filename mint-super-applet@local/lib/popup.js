@@ -398,8 +398,7 @@ var Dashboard = class Dashboard {
         let pages = [{ id: 'summary', title: 'Summary' }, { id: 'overview', title: 'System' }];
         if (this.applet.showBatteryPage !== false)
             pages.push({ id: 'battery', title: 'Battery' });
-        if (this.applet.showMediaPage !== false)
-            pages.push({ id: 'media', title: 'Media' });
+        pages.push({ id: 'media', title: 'Media' });
         return pages;
     }
 
@@ -617,7 +616,7 @@ var Dashboard = class Dashboard {
             let t = (now - this._anim.start) / this._animDur;
             if (t >= 1) {
                 this._anim = null;
-            } else if (t > 0 && this.getPageCount() > 1) {
+            } else if (t >= 0 && this.getPageCount() > 1) {
                 slide = {
                     eased: this._easeOutCubic(t),
                     dir: this._anim.dir,
@@ -725,23 +724,45 @@ var Dashboard = class Dashboard {
         // the active page filled in the accent color.
         let pages = this._pages();
         let rects = this._tabLayout(headerH);
+        if (!rects.length) return;
+        let activeIdx = Math.max(0, Math.min(rects.length - 1, this.pageIndex));
+
+        // Fluid pill: while a page switch runs, glide the fill between the
+        // old and new tab slots instead of snapping to the target.
+        let pillX = rects[activeIdx].x;
+        let pillW = rects[activeIdx].w;
+        if (this._anim && this._animDur > 0) {
+            let p = (Date.now() - this._anim.start) / this._animDur;
+            if (p >= 0 && p < 1 &&
+                rects[this._anim.fromIdx] && rects[this._anim.toIdx]) {
+                let e = this._easeOutCubic(p);
+                let a = rects[this._anim.fromIdx], b = rects[this._anim.toIdx];
+                pillX = a.x + (b.x - a.x) * e;
+                pillW = a.w + (b.w - a.w) * e;
+            }
+        }
+        let pillCenter = pillX + pillW / 2;
+        let pillH = headerH - 4;
+        Draw.fillRoundRect(ctx, Math.round(pillX + 2), m + 2,
+            Math.round(pillW - 4), pillH, pillH / 2, Draw.PALETTE.primary, 1);
+
         for (let r of rects) {
             let page = pages[r.i];
-            let active = r.i === this.pageIndex;
-            let pillH = headerH - 4;
-            let px = r.x + 2, py = r.y + 2, pw = r.w - 4;
-            if (active)
-                Draw.fillRoundRect(ctx, px, py, pw, pillH, pillH / 2,
-                    Draw.PALETTE.primary, 1);
-            let color = active ? Draw.PALETTE.onPrimary : Draw.PALETTE.textVariant;
-            let fs = pw < 90 ? 8.5 : 9.5;
+            let active = r.i === activeIdx;
+            // Labels crossfade toward the on-primary color as the pill
+            // slides under them, so the color change is not a hard cut.
+            let cover = 1 - Math.min(1,
+                Math.abs(r.x + r.w / 2 - pillCenter) / (r.w / 2));
+            let color = Draw.mixHex(Draw.PALETTE.textVariant,
+                Draw.PALETTE.onPrimary, Math.max(0, cover));
+            let fs = r.w < 90 ? 8.5 : 9.5;
             let label = page.title;
             let [tw] = this._measureText(area, label,
                 { size: fs, font: 'Sans', weight: active ? 'bold' : 'normal' });
             let iconS = 12;
             let contentW = iconS + 5 + tw;
             let sx = r.x + Math.round((r.w - contentW) / 2);
-            let cy = py + pillH / 2;
+            let cy = m + 2 + pillH / 2;
             this._drawTabIcon(ctx, page.id, sx, Math.round(cy - iconS / 2), iconS, color);
             this._drawText(area, ctx, label, sx + iconS + 5,
                 cy - Math.round(fs * 0.62), color,

@@ -74,24 +74,121 @@ var SummaryPage = {
             : (wp && !wp.failed ? 'Loading…' : 'Unavailable');
         let locT = weather && weather.location ? weather.location : '';
 
-        let iconS = Math.max(18, Math.min(30, Math.round(h * 0.34)));
-        this._drawText(area, ctx, this._summaryWeatherIcon(weather && weather.desc),
-            x + p, y + p, has ? Draw.PALETTE.tertiary : Draw.PALETTE.outline,
-            { size: iconS, font: 'Sans' });
+        let descS = Math.max(10.5, Math.min(12.5, h * 0.125));
+        let locS = Math.max(8.5, descS - 2);
+        let descH = Math.round(descS * 1.36);
+        let lineY = y + h - p - descH - Math.round(locS * 1.36) - 2;
+
+        let kind = this._summaryWeatherKind(weather && weather.desc);
+        let iconS = Math.min(34, Math.round(h * 0.36), lineY - y - p);
+        let iconHex = !has ? Draw.PALETTE.outline
+            : (kind === 'clear' || kind === 'partly') ? Draw.PALETTE.tertiary
+            : (kind === 'rain' || kind === 'snow' || kind === 'thunder') ? Draw.PALETTE.cyan
+            : Draw.PALETTE.textVariant;
+        this._drawSummaryWeatherIcon(ctx, kind, x + p, y + p, Math.max(12, iconS), iconHex);
 
         let tempS = Math.max(18, Math.min(30, Math.round(h * 0.32)));
         this._drawText(area, ctx, tempT, x + w - p, y + p - 3,
             has ? Draw.PALETTE.text : Draw.PALETTE.outline,
             { size: tempS, weight: 'bold', align: 'right', font: 'Sans' });
 
-        let lineY = y + h - p - 24;
         this._drawText(area, ctx, descT, x + p, lineY,
             Draw.PALETTE.textVariant,
-            { size: 9.5, width: w - 2 * p, ellipsize: true, font: 'Sans' });
+            { size: descS, width: w - 2 * p, ellipsize: true, font: 'Sans' });
         if (locT)
-            this._drawText(area, ctx, locT, x + p, lineY + 14,
+            this._drawText(area, ctx, locT, x + p, lineY + descH + 2,
                 Draw.PALETTE.textVariant,
-                { size: 8, alpha: 0.8, width: w - 2 * p, ellipsize: true, font: 'Sans' });
+                { size: locS, alpha: 0.8, width: w - 2 * p, ellipsize: true, font: 'Sans' });
+    },
+
+    // Outlined Cairo weather icons. Kept in one place so each condition reads
+    // the same weight and finish as the rest of the card glyphs.
+    _drawSummaryWeatherIcon(ctx, kind, x, y, s, hex) {
+        let px = f => x + f * s, py = f => y + f * s;
+        let cloud = (bx, by, bw, bh) => {
+            let cx = f => bx + f * bw, cy = f => by + f * bh;
+            ctx.newPath();
+            ctx.moveTo(cx(0.26), cy(0.82));
+            ctx.curveTo(cx(0.06), cy(0.82), cx(0.05), cy(0.58), cx(0.22), cy(0.52));
+            ctx.curveTo(cx(0.20), cy(0.28), cx(0.50), cy(0.20), cx(0.60), cy(0.42));
+            ctx.curveTo(cx(0.72), cy(0.28), cx(0.96), cy(0.42), cx(0.90), cy(0.62));
+            ctx.curveTo(cx(1.00), cy(0.78), cx(0.86), cy(0.88), cx(0.74), cy(0.82));
+            ctx.closePath();
+            ctx.stroke();
+        };
+        let sun = (sx, sy, r) => {
+            ctx.newPath();
+            ctx.arc(sx, sy, r, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.newPath();
+            for (let i = 0; i < 8; i++) {
+                let a = i * Math.PI / 4;
+                ctx.moveTo(sx + Math.cos(a) * r * 1.45, sy + Math.sin(a) * r * 1.45);
+                ctx.lineTo(sx + Math.cos(a) * r * 1.95, sy + Math.sin(a) * r * 1.95);
+            }
+            ctx.stroke();
+        };
+        let flake = (fx, fy, r) => {
+            ctx.newPath();
+            for (let i = 0; i < 3; i++) {
+                let a = i * Math.PI / 3;
+                ctx.moveTo(fx - Math.cos(a) * r, fy - Math.sin(a) * r);
+                ctx.lineTo(fx + Math.cos(a) * r, fy + Math.sin(a) * r);
+            }
+            ctx.stroke();
+        };
+
+        ctx.save();
+        Draw.setSourceHex(ctx, hex, 1);
+        ctx.setLineWidth(Math.max(1.4, s * 0.085));
+        ctx.setLineCap(1);
+        ctx.setLineJoin(1);
+
+        if (kind === 'clear') {
+            sun(px(0.5), py(0.5), s * 0.20);
+        } else if (kind === 'partly') {
+            sun(px(0.32), py(0.30), s * 0.145);
+            cloud(px(0.04), py(0.34), s * 0.92, s * 0.58);
+        } else if (kind === 'rain' || kind === 'snow' || kind === 'thunder') {
+            cloud(x, y + s * 0.02, s, s * 0.68);
+            if (kind === 'rain') {
+                ctx.newPath();
+                for (let f of [0.28, 0.50, 0.72]) {
+                    ctx.moveTo(px(f), py(0.76));
+                    ctx.lineTo(px(f - 0.06), py(0.96));
+                }
+                ctx.stroke();
+            } else if (kind === 'snow') {
+                for (let f of [0.28, 0.50, 0.72])
+                    flake(px(f), py(0.86), s * 0.075);
+            } else {
+                ctx.newPath();
+                ctx.moveTo(px(0.56), py(0.68));
+                ctx.lineTo(px(0.44), py(0.85));
+                ctx.lineTo(px(0.54), py(0.85));
+                ctx.lineTo(px(0.45), py(1.0));
+                ctx.stroke();
+            }
+        } else if (kind === 'fog') {
+            ctx.newPath();
+            for (let i = 0; i < 4; i++) {
+                let fy = 0.25 + i * 0.17;
+                let inset = i % 2 ? 0.04 : 0.14;
+                ctx.moveTo(px(inset), py(fy));
+                ctx.lineTo(px(1 - inset), py(fy));
+            }
+            ctx.stroke();
+        } else if (kind === 'cloud') {
+            cloud(x, y + s * 0.10, s, s * 0.80);
+        } else {
+            ctx.newPath();
+            ctx.arc(px(0.5), py(0.5), s * 0.19, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.newPath();
+            ctx.arc(px(0.5), py(0.5), Math.max(1, s * 0.035), 0, 2 * Math.PI);
+            ctx.stroke();
+        }
+        ctx.restore();
     },
 
     _drawSummaryClockCard(ctx, area, x, y, w, h) {
@@ -327,17 +424,17 @@ var SummaryPage = {
             { size: 7.5, align: 'right', font: 'Sans' });
     },
 
-    _summaryWeatherIcon(desc) {
+    _summaryWeatherKind(desc) {
         let d = (desc || '').toLowerCase();
-        if (d.indexOf('thunder') >= 0) return '⚡';
+        if (d.indexOf('thunder') >= 0) return 'thunder';
         if (d.indexOf('snow') >= 0 || d.indexOf('sleet') >= 0 ||
-            d.indexOf('blizzard') >= 0 || d.indexOf('ice') >= 0) return '❄';
+            d.indexOf('blizzard') >= 0 || d.indexOf('ice') >= 0) return 'snow';
         if (d.indexOf('rain') >= 0 || d.indexOf('drizzle') >= 0 ||
-            d.indexOf('shower') >= 0) return '☂';
-        if (d.indexOf('fog') >= 0 || d.indexOf('mist') >= 0) return '≡';
-        if (d.indexOf('partly') >= 0) return '⛅';
-        if (d.indexOf('cloud') >= 0 || d.indexOf('overcast') >= 0) return '☁';
-        if (d.indexOf('clear') >= 0 || d.indexOf('sun') >= 0) return '☀';
-        return '•';
+            d.indexOf('shower') >= 0) return 'rain';
+        if (d.indexOf('fog') >= 0 || d.indexOf('mist') >= 0) return 'fog';
+        if (d.indexOf('partly') >= 0) return 'partly';
+        if (d.indexOf('cloud') >= 0 || d.indexOf('overcast') >= 0) return 'cloud';
+        if (d.indexOf('clear') >= 0 || d.indexOf('sun') >= 0) return 'clear';
+        return 'unknown';
     }
 };

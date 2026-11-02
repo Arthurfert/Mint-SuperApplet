@@ -65,47 +65,17 @@
     },
     "head-sections": {
         "type": "header",
-        "description": "Sections"
-    },
-    "show-cpu": {
-        "type": "switch",
-        "default": true,
-        "description": "Show CPU panel"
-    },
-    "show-memory": {
-        "type": "switch",
-        "default": true,
-        "description": "Show memory panel"
+        "description": "Pages & graphs"
     },
     "memory-include-cache-buffers": {
         "type": "switch",
-        "default": true,
-        "description": "Include cache and buffers in memory graph"
-    },
-    "show-network": {
-        "type": "switch",
-        "default": true,
-        "description": "Show network panel"
-    },
-    "show-disk": {
-        "type": "switch",
-        "default": true,
-        "description": "Show disk I/O panel"
-    },
-    "show-temps": {
-        "type": "switch",
-        "default": true,
-        "description": "Show temperatures strip"
+        "default": false,
+        "description": "Detailed memory graph (include cache and buffers)"
     },
     "show-battery-page": {
         "type": "switch",
         "default": true,
-        "description": "Show battery health page (switch with side arrows)"
-    },
-    "show-media-page": {
-        "type": "switch",
-        "default": true,
-        "description": "Show media controller page (switch with side arrows)"
+        "description": "Show battery health page (disable on desktops)"
     },
     "head-panel": {
         "type": "header",

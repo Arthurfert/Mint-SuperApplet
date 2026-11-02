@@ -82,6 +82,20 @@ function rgba(hex, alpha) {
            Math.round(c[2] * 255) + ',' + c[3] + ')';
 }
 
+function mixHex(a, b, t) {
+    // Per-channel blend for animated text/icon colors.
+    t = Math.max(0, Math.min(1, t));
+    let ca = normalizeHex(a), cb = normalizeHex(b);
+    if (!ca || !cb) return t < 0.5 ? a : b;
+    let out = '#';
+    for (let i = 1; i < 7; i += 2) {
+        let av = parseInt(ca.substring(i, i + 2), 16);
+        let bv = parseInt(cb.substring(i, i + 2), 16);
+        out += ('0' + Math.round(av + (bv - av) * t).toString(16)).slice(-2);
+    }
+    return out;
+}
+
 function roundedRect(ctx, x, y, w, h, r) {
     if (r > w / 2) r = w / 2;
     if (r > h / 2) r = h / 2;

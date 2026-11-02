@@ -5,14 +5,9 @@ const Draw = require('./lib/draw');
 // Expects the host to provide: this.applet, this._drawText, this._measureText.
 var OverviewPage = {
     _paintOverview(ctx, area, W, H, skipHeader) {
-        let applet = this.applet;
-
         let hg = this._headerGeom || { m: 12, gap: 8, h: 36 };
         let m = hg.m, gap = hg.gap, headerH = hg.h, tempsH = 34;
-        let hasTemps = !!applet.showTemps;
-        let effTempsH = hasTemps ? tempsH : 0;
-        let gaps = hasTemps ? 3 : 2;
-        let rowsH = H - (2 * m + headerH + effTempsH + gaps * gap);
+        let rowsH = H - (2 * m + headerH + tempsH + 3 * gap);
         // guard against tiny/negative sizes when popup is very small
         if (rowsH < 40) rowsH = 40;
         let row1H = Math.round(rowsH * 0.58);
@@ -26,20 +21,15 @@ var OverviewPage = {
             this._drawHeader(ctx, area, W, m, headerH);
         y += headerH + gap;
 
-        if (applet.showCpu)
-            this._drawCpuPanel(ctx, area, m, y, colW, row1H);
-        if (applet.showMemory)
-            this._drawMemPanel(ctx, area, m + colW + gap, y, colW, row1H);
+        this._drawCpuPanel(ctx, area, m, y, colW, row1H);
+        this._drawMemPanel(ctx, area, m + colW + gap, y, colW, row1H);
         y += row1H + gap;
 
-        if (applet.showNetwork)
-            this._drawNetPanel(ctx, area, m, y, colW, row2H);
-        if (applet.showDisk)
-            this._drawDiskPanel(ctx, area, m + colW + gap, y, colW, row2H);
+        this._drawNetPanel(ctx, area, m, y, colW, row2H);
+        this._drawDiskPanel(ctx, area, m + colW + gap, y, colW, row2H);
         y += row2H + gap;
 
-        if (hasTemps)
-            this._drawTempsStrip(ctx, area, m, y, W - 2 * m, tempsH);
+        this._drawTempsStrip(ctx, area, m, y, W - 2 * m, tempsH);
     },
 
     _drawPanelHeader(ctx, area, x, y, w, title, rightText, rightColor) {
@@ -156,7 +146,7 @@ var OverviewPage = {
 
         // stacked graph over time
         let freeVal = Math.max(0, d.total - d.used - d.cache - d.buffers);
-        let includeCache = this.applet.memoryIncludeCacheBuffers !== false; // default true
+        let includeCache = this.applet.memoryIncludeCacheBuffers === true;
         let freeInclusive = Math.max(0, d.total - d.used);
         // histories are ordered bottom->top: used, cache, buffers, free
         // use user-configurable palette entries so graph follows applet settings

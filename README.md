@@ -2,7 +2,11 @@
 
 A custom Cinnamon applet with modern styling.
 
-Right now it features :
+It features :
+- **Summary** page (default landing) with :
+  - Date, time and local weather
+  - CPU, memory and battery rings
+  - What's currently playing
 - **System monitor** page with :
   - CPU usage (global and pre-core)
   - Memory (usage graph)
@@ -17,13 +21,6 @@ Right now it features :
   - Media info (cover, title, timing...)
   - Pause, skip/back arrows buttons
   - Volume control
-
-It will then improve gradually, with :
-
-- Weather forecast
-- And more !
-
-All in one "**Super-Applet**" !
 
 *This work has been inspired by some Arch Linux dotfiles like [Caelestia](https://github.com/caelestia-dots/caelestia).*
 
@@ -55,8 +52,9 @@ mint-super-applet@local/
 ├── settings-schema.json   # configurable via right-click → Settings
 └── lib/
     ├── draw.js            # Cairo helpers + palette
-    ├── providers.js       # /proc data (CPU, mem, net, disk, temps)
+    ├── providers.js       # /proc data (CPU, mem, net, disk, temps) + weather
     ├── popup.js           # popup and pages management
+    ├── popup-summary.js   # default summary page
     ├── popup-overview.js  # system monitor page rendering
     └── popup-battery.js   # battery page rendering
 ```

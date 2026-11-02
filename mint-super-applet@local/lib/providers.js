@@ -809,3 +809,135 @@ var BatteryProvider = class BatteryProvider {
         };
     }
 };
+
+// WMO weather code (Open-Meteo) -> short human label.
+function _weatherText(code) {
+    code = Number(code);
+    if (code === 0) return 'Clear sky';
+    if (code === 1) return 'Mainly clear';
+    if (code === 2) return 'Partly cloudy';
+    if (code === 3) return 'Overcast';
+    if (code === 45 || code === 48) return 'Fog';
+    if (code >= 51 && code <= 55) return 'Drizzle';
+    if (code === 56 || code === 57) return 'Freezing drizzle';
+    if (code >= 61 && code <= 65) return 'Rain';
+    if (code === 66 || code === 67) return 'Freezing rain';
+    if (code >= 71 && code <= 75) return 'Snow';
+    if (code === 77) return 'Snow grains';
+    if (code >= 80 && code <= 82) return 'Rain showers';
+    if (code === 85 || code === 86) return 'Snow showers';
+    if (code === 95) return 'Thunderstorm';
+    if (code === 96 || code === 99) return 'Thunderstorm with hail';
+    return 'Unknown';
+}
+
+// Current weather for the summary page: ipwho.is for an approximate city
+// from the public IP, then Open-Meteo for the actual conditions.
+// shortcut: IP-based location is approximate; add a manual location setting
+// if that becomes a problem.
+var WeatherProvider = class WeatherProvider {
+    constructor() {
+        this.onChange = null;
+        this._data = null;
+        this._dataAt = 0;
+        this._loc = null;
+        this._locAt = 0;
+        this._pending = false;
+        this._failed = false;
+    }
+
+    tick() {
+        if (this._pending) return;
+        let now = Date.now();
+        // Refresh the IP location daily (sooner after a failure).
+        let locWait = this._failed ? 2 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        if (now - this._locAt > locWait) {
+            this._fetchLocation();
+            return;
+        }
+        let wait = this._failed ? 2 * 60 * 1000 : 15 * 60 * 1000;
+        if (now - this._dataAt > wait)
+            this._fetchWeather();
+    }
+
+    _curlJson(url, cb) {
+        let proc = null;
+        try {
+            proc = Gio.Subprocess.new(['curl', '-sS', '--max-time', '8', url],
+                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
+        } catch (e) {
+            cb(null);
+            return;
+        }
+        proc.communicate_async(null, null, (p, res) => {
+            let out = null;
+            try {
+                let r = p.communicate_finish(res);
+                if (p.get_successful() && r && r[1]) {
+                    let s = _toString(r[1]);
+                    if (s) out = JSON.parse(s);
+                }
+            } catch (e) { out = null; }
+            cb(out);
+        });
+    }
+
+    _fetchLocation() {
+        this._pending = true;
+        this._locAt = Date.now();
+        this._curlJson('https://ipwho.is/', (j) => {
+            if (j && j.success !== false &&
+                isFinite(j.latitude) && isFinite(j.longitude)) {
+                this._loc = { lat: j.latitude, lon: j.longitude, city: j.city || null };
+                this._fetchWeather();
+            } else {
+                this._pending = false;
+                this._failed = true;
+                this._notify();
+            }
+        });
+    }
+
+    _fetchWeather() {
+        if (!this._loc) {
+            this._pending = false;
+            this._failed = true;
+            this._notify();
+            return;
+        }
+        this._pending = true;
+        let loc = this._loc;
+        let url = 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat +
+            '&longitude=' + loc.lon + '&current=temperature_2m,weather_code';
+        this._curlJson(url, (j) => {
+            this._pending = false;
+            this._dataAt = Date.now();
+            let c = j && j.current;
+            if (c && isFinite(c.temperature_2m) && c.weather_code !== undefined) {
+                this._data = {
+                    temp: Math.round(c.temperature_2m),
+                    code: c.weather_code,
+                    desc: _weatherText(c.weather_code),
+                    location: loc.city,
+                    at: Date.now()
+                };
+                this._failed = false;
+            } else {
+                this._failed = true;
+            }
+            this._notify();
+        });
+    }
+
+    _notify() {
+        if (this.onChange) this.onChange();
+    }
+
+    get data() {
+        return this._data;
+    }
+
+    get failed() {
+        return this._failed;
+    }
+};

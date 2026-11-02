@@ -1,6 +1,7 @@
 const St = imports.gi.St;
 const GLib = imports.gi.GLib;
 const Draw = require('./lib/draw');
+const SummaryPage = require('./lib/popup-summary').SummaryPage;
 const OverviewPage = require('./lib/popup-overview').OverviewPage;
 const BatteryPage = require('./lib/popup-battery').BatteryPage;
 const MediaPage = require('./lib/popup-media').MediaPage;
@@ -384,9 +385,9 @@ var Dashboard = class Dashboard {
     }
 
     _pages() {
-        // Overview is always present; battery and media pages are optional
-        // via settings.
-        let pages = [{ id: 'overview', title: 'Overview' }];
+        // Summary is the default landing page; battery and media pages are
+        // optional via settings.
+        let pages = [{ id: 'summary', title: 'Summary' }, { id: 'overview', title: 'Overview' }];
         if (this.applet.showBatteryPage !== false)
             pages.push({ id: 'battery', title: 'Battery' });
         if (this.applet.showMediaPage !== false)
@@ -540,7 +541,9 @@ var Dashboard = class Dashboard {
     }
 
     _paintPageById(ctx, area, W, H, id, skipHeader) {
-        if (id === 'battery')
+        if (id === 'summary')
+            this._paintSummary(ctx, area, W, H, skipHeader);
+        else if (id === 'battery')
             this._paintBattery(ctx, area, W, H, skipHeader);
         else if (id === 'media')
             this._paintMedia(ctx, area, W, H, skipHeader);
@@ -742,4 +745,4 @@ var Dashboard = class Dashboard {
 
 // Page content lives in dedicated modules; mix their methods in so existing
 // calls like this._paintOverview(...) / this._paintBattery(...) keep working.
-Object.assign(Dashboard.prototype, OverviewPage, BatteryPage, MediaPage);
+Object.assign(Dashboard.prototype, SummaryPage, OverviewPage, BatteryPage, MediaPage);

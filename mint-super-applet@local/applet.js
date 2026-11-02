@@ -58,10 +58,12 @@ class MintSuperApplet extends Applet.Applet {
             net: new Providers.NetProvider(),
             disk: new Providers.DiskProvider(),
             temp: new Providers.TempProvider(),
-            battery: new Providers.BatteryProvider()
+            battery: new Providers.BatteryProvider(),
+            weather: new Providers.WeatherProvider()
         };
         this.providers.temp.onChange = () => this._repaintAll();
         this.providers.battery.onChange = () => this._repaintAll();
+        this.providers.weather.onChange = () => this._repaintAll();
 
         this.media = new Media.MediaMonitor();
         this.media.onChange = () => this._repaintAll();
@@ -267,13 +269,19 @@ class MintSuperApplet extends Applet.Applet {
         if (!this._clockLabel) return;
         if (!this.panelShowClock) {
             this._clockLabel.hide();
-            return;
+        } else {
+            let txt = this._formatClock();
+            if (this._clockLabel.text !== txt) {
+                this._clockLabel.set_text(txt);
+            }
+            this._clockLabel.show();
         }
-        let txt = this._formatClock();
-        if (this._clockLabel.text !== txt) {
-            this._clockLabel.set_text(txt);
-        }
-        this._clockLabel.show();
+        // Keep the summary clock ticking at 1s even when the monitor refresh
+        // interval is slower, but only repaint while the popup is visible.
+        try {
+            if (this.dashboard && this.menu && this.menu.isOpen)
+                this.dashboard.queueRepaint();
+        } catch (e) { /* ignore */ }
     }
 
     _tick() {
@@ -283,6 +291,9 @@ class MintSuperApplet extends Applet.Applet {
         this.providers.disk.tick();
         if (this.providers.battery)
             this.providers.battery.tick();
+        try {
+            if (this.providers.weather) this.providers.weather.tick();
+        } catch (e) { /* keep last weather state */ }
         try {
             if (this.media) this.media.tick();
         } catch (e) { /* keep last media state */ }

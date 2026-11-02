@@ -5,7 +5,7 @@ const Media = require('./lib/media');
 // Dense summary page (first/default page) for the Dashboard.
 // Mixed into Dashboard.prototype by lib/popup.js via Object.assign.
 // Expects the host to provide: this.applet, this._drawText, this._measureText,
-// this._mediaData, this._mediaStatusColor, this._fmtMediaTime,
+// this._mediaData, this._fmtMediaTime,
 // this._drawArtPlaceholder and this._chargeColor.
 var SummaryPage = {
     _paintSummary(ctx, area, W, H, skipHeader) {
@@ -46,7 +46,9 @@ var SummaryPage = {
         let clockH = bodyY + bodyH - clockY;
 
         let sysH = Math.round(bodyH * 0.54);
-        sysH = Math.max(96, Math.min(sysH, bodyH - 88));
+        // The rings cap at 60px, so extra height only adds empty space above
+        // the calendar. Give the calendar the rest.
+        sysH = Math.max(96, Math.min(sysH, 108, bodyH - 88));
         let calY = bodyY + sysH + gap;
         let calH = bodyY + bodyH - calY;
 
@@ -210,15 +212,15 @@ var SummaryPage = {
                 size = Math.max(20, Math.floor(size * maxW / tw));
         } catch (e) { /* keep the fitted size */ }
 
-        let wdH = 12, timeH = Math.round(size * 1.15), dayH = 14;
-        let gapA = 8, gapB = 4;
+        let wdH = 14, timeH = Math.round(size * 1.15), dayH = 16;
+        let gapA = 7, gapB = 5;
         let groupH = wdH + gapA + timeH + gapB + dayH;
         let top = y + Math.max(0, Math.round((h - groupH) / 2));
 
         if (weekday)
             this._drawText(area, ctx, weekday, x + w / 2, top,
                 Draw.PALETTE.textVariant,
-                { size: 9, weight: 'bold', align: 'center', font: 'Sans' });
+                { size: 10.5, weight: 'bold', align: 'center', font: 'Sans' });
 
         this._drawText(area, ctx, timeT, x + w / 2, top + wdH + gapA,
             Draw.PALETTE.text,
@@ -235,7 +237,7 @@ var SummaryPage = {
             this._drawText(area, ctx, dayT, x + w / 2,
                 top + wdH + gapA + timeH + gapB,
                 Draw.PALETTE.textVariant,
-                { size: 10.5, align: 'center', font: 'Sans' });
+                { size: 12, align: 'center', font: 'Sans' });
     },
 
     _drawSummarySystemCard(ctx, area, x, y, w, h) {
@@ -329,7 +331,7 @@ var SummaryPage = {
         let gridH = Math.max(12, h - titleH - weekdayH - p);
         let cw = (w - 2 * p) / 7;
         let ch = gridH / Math.max(1, rows);
-        let fs = Math.max(6.5, Math.min(8.5, ch * 0.68));
+        let fs = Math.max(6.5, Math.min(10, ch * 0.62, cw * 0.55));
         let today = now.get_day_of_month();
 
         for (let i = 0; i < 7; i++) {
@@ -366,18 +368,7 @@ var SummaryPage = {
         let has = !!(d && d.hasPlayer);
         let info = d || {};
 
-        let statusT = has ? (info.status || 'Stopped') : 'No media';
-        let statusColor = this._mediaStatusColor(has ? info.status : 'Stopped');
-        let chipH = 16;
-        let [cw] = this._measureText(area, statusT,
-            { size: 8, font: 'Sans', weight: 'bold' });
-        let chipW = Math.min(w - 2 * p, cw + 14);
-        Draw.fillRoundRect(ctx, x + p, y + p, chipW, chipH, chipH / 2,
-            statusColor, 0.14);
-        this._drawText(area, ctx, statusT, x + p + 7, y + p + 4, statusColor,
-            { size: 8, font: 'Sans', weight: 'bold' });
-
-        let artTop = y + p + chipH + 8;
+        let artTop = y + p;
         let artS = Math.min(w - 2 * p, h - (artTop - y) - 72);
         artS = Math.max(40, Math.round(artS));
         let artX = x + Math.round((w - artS) / 2);

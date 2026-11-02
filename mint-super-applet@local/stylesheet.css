@@ -7,10 +7,10 @@
     background-gradient-direction: none;
     border: 0px;
     border-image: none;
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 0px;
     margin: 0px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
 .menu.applet-popup .popup-menu-content {
@@ -18,7 +18,7 @@
     background-gradient-direction: none;
     border: 0px;
     border-image: none;
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 0px;
     margin: 0px;
     box-shadow: none;
@@ -40,9 +40,10 @@
 .msa-nav-btn {
     min-width: 34px;
     min-height: 34px;
+    border: 0px;
     border-radius: 17px;
     background-color: transparent;
-    color: #c9c0e8;
+    color: #7c3aed;
     transition-duration: 150ms;
 }
 
@@ -53,22 +54,20 @@
 }
 
 .msa-nav-btn:hover {
-    background-color: rgba(139, 92, 246, 0.25);
-    border-color: rgba(139, 92, 246, 0.5);
-    color: #ece6ff;
+    background-color: rgba(124, 58, 237, 0.18);
+    color: #7c3aed;
 }
 
 .msa-nav-btn:active {
-    background-color: rgba(139, 92, 246, 0.4);
+    background-color: rgba(124, 58, 237, 0.3);
 }
 
 .msa-nav-btn:focus {
-    background-color: rgba(139, 92, 246, 0.25);
-    border-color: rgba(139, 92, 246, 0.7);
+    background-color: rgba(124, 58, 237, 0.18);
 }
 
 .msa-nav-icon {
-    color: #c9c0e8;
+    color: #7c3aed;
     size: 20px;
     font-size: 20px;
 }

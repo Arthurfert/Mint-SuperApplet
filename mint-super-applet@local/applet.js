@@ -451,12 +451,27 @@ class MintSuperApplet extends Applet.Applet {
         ctx.restore();
     }
 
+    _panelTextHex() {
+        // The popup palette is light, but the panel follows the desktop
+        // theme. Read the theme text color so the ring percentages stay
+        // readable on dark and light panels alike.
+        try {
+            let node = this._panelArea && this._panelArea.get_theme_node();
+            let c = node && node.get_color('color');
+            if (c && isFinite(c.red) && isFinite(c.green) && isFinite(c.blue)) {
+                let h = v => ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2);
+                return '#' + h(c.red) + h(c.green) + h(c.blue);
+            }
+        } catch (e) { /* fall back to the palette */ }
+        return Draw.PALETTE.text;
+    }
+
     _drawRingIndicator(ctx, area, cx, cy, d, thk, fraction, color, track, label) {
         let r = d / 2;
         Draw.drawRing(ctx, cx, cy, r, thk, fraction, color, track);
         let fs = Math.max(6, Math.round(d * 0.3));
         this._drawText(area, ctx, Math.round(fraction * 100) + '%', cx, cy - Math.round(fs * 0.62),
-            Draw.PALETTE.text, { size: fs, align: 'center', font: 'Sans' });
+            this._panelTextHex(), { size: fs, align: 'center', font: 'Sans' });
     }
 
     _drawText(area, ctx, text, x, y, hex, opts) {

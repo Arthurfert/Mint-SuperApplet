@@ -137,7 +137,7 @@
     },
     "color-primary": {
         "type": "colorchooser",
-        "default": "#8b5cf6",
+        "default": "#7c3aed",
         "description": "Primary accent (CPU, disk read, memory used)"
     },
     "color-secondary": {
@@ -157,32 +157,32 @@
     },
     "color-error": {
         "type": "colorchooser",
-        "default": "#ff5757",
+        "default": "#ff6b6b",
         "description": "Critical color (high usage, hot temps)"
     },
     "color-background": {
         "type": "colorchooser",
-        "default": "#12111e",
+        "default": "#121018",
         "description": "Dashboard background"
     },
     "color-surface": {
         "type": "colorchooser",
-        "default": "#1f1d30",
+        "default": "#1f1b29",
         "description": "Panel card background"
     },
     "color-surface-high": {
         "type": "colorchooser",
-        "default": "#2e2c45",
+        "default": "#2e2940",
         "description": "Ring track / bar background"
     },
     "color-text": {
         "type": "colorchooser",
-        "default": "#ece6ff",
+        "default": "#ece6f7",
         "description": "Primary text color"
     },
     "color-text-variant": {
         "type": "colorchooser",
-        "default": "#c9c0e8",
+        "default": "#c9c0dd",
         "description": "Secondary text color"
     }
 }

@@ -5,6 +5,7 @@ A custom Cinnamon applet with modern styling.
 It features :
 - **Summary** page (default landing) with :
   - Date, time and local weather
+  - Month calendar
   - CPU, memory and battery rings
   - What's currently playing
 - **System monitor** page with :
@@ -22,7 +23,7 @@ It features :
   - Pause, skip/back arrows buttons
   - Volume control
 
-*This work has been inspired by some Arch Linux dotfiles like [Caelestia](https://github.com/caelestia-dots/caelestia).*
+*This work has been inspired by some Arch Linux/Hyperland dotfiles.*
 
 ## Install
 

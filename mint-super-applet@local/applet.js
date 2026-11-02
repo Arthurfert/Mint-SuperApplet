@@ -28,14 +28,8 @@ class MintSuperApplet extends Applet.Applet {
         this.settings.bindProperty(Settings.BindingDirection.IN, 'popup-open-on-hover', 'popupOpenOnHover', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'popup-hover-delay', 'popupHoverDelay', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'popup-open-duration', 'popupOpenDuration', this._onSettingsChanged, null);
-        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-cpu', 'showCpu', this._onSettingsChanged, null);
-        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-memory', 'showMemory', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'memory-include-cache-buffers', 'memoryIncludeCacheBuffers', this._onSettingsChanged, null);
-        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-network', 'showNetwork', this._onSettingsChanged, null);
-        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-disk', 'showDisk', this._onSettingsChanged, null);
-        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-temps', 'showTemps', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-battery-page', 'showBatteryPage', this._onSettingsChanged, null);
-        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-media-page', 'showMediaPage', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-cpu', 'panelShowCpu', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-memory', 'panelShowMemory', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-clock', 'panelShowClock', this._onSettingsChanged, null);
@@ -58,10 +52,12 @@ class MintSuperApplet extends Applet.Applet {
             net: new Providers.NetProvider(),
             disk: new Providers.DiskProvider(),
             temp: new Providers.TempProvider(),
-            battery: new Providers.BatteryProvider()
+            battery: new Providers.BatteryProvider(),
+            weather: new Providers.WeatherProvider()
         };
         this.providers.temp.onChange = () => this._repaintAll();
         this.providers.battery.onChange = () => this._repaintAll();
+        this.providers.weather.onChange = () => this._repaintAll();
 
         this.media = new Media.MediaMonitor();
         this.media.onChange = () => this._repaintAll();
@@ -267,13 +263,19 @@ class MintSuperApplet extends Applet.Applet {
         if (!this._clockLabel) return;
         if (!this.panelShowClock) {
             this._clockLabel.hide();
-            return;
+        } else {
+            let txt = this._formatClock();
+            if (this._clockLabel.text !== txt) {
+                this._clockLabel.set_text(txt);
+            }
+            this._clockLabel.show();
         }
-        let txt = this._formatClock();
-        if (this._clockLabel.text !== txt) {
-            this._clockLabel.set_text(txt);
-        }
-        this._clockLabel.show();
+        // Keep the summary clock ticking at 1s even when the monitor refresh
+        // interval is slower, but only repaint while the popup is visible.
+        try {
+            if (this.dashboard && this.menu && this.menu.isOpen)
+                this.dashboard.queueRepaint();
+        } catch (e) { /* ignore */ }
     }
 
     _tick() {
@@ -283,6 +285,9 @@ class MintSuperApplet extends Applet.Applet {
         this.providers.disk.tick();
         if (this.providers.battery)
             this.providers.battery.tick();
+        try {
+            if (this.providers.weather) this.providers.weather.tick();
+        } catch (e) { /* keep last weather state */ }
         try {
             if (this.media) this.media.tick();
         } catch (e) { /* keep last media state */ }
@@ -440,12 +445,27 @@ class MintSuperApplet extends Applet.Applet {
         ctx.restore();
     }
 
+    _panelTextHex() {
+        // The popup palette is light, but the panel follows the desktop
+        // theme. Read the theme text color so the ring percentages stay
+        // readable on dark and light panels alike.
+        try {
+            let node = this._panelArea && this._panelArea.get_theme_node();
+            let c = node && node.get_color('color');
+            if (c && isFinite(c.red) && isFinite(c.green) && isFinite(c.blue)) {
+                let h = v => ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2);
+                return '#' + h(c.red) + h(c.green) + h(c.blue);
+            }
+        } catch (e) { /* fall back to the palette */ }
+        return Draw.PALETTE.text;
+    }
+
     _drawRingIndicator(ctx, area, cx, cy, d, thk, fraction, color, track, label) {
         let r = d / 2;
         Draw.drawRing(ctx, cx, cy, r, thk, fraction, color, track);
         let fs = Math.max(6, Math.round(d * 0.3));
         this._drawText(area, ctx, Math.round(fraction * 100) + '%', cx, cy - Math.round(fs * 0.62),
-            Draw.PALETTE.text, { size: fs, align: 'center', font: 'Sans' });
+            this._panelTextHex(), { size: fs, align: 'center', font: 'Sans' });
     }
 
     _drawText(area, ctx, text, x, y, hex, opts) {

@@ -2,28 +2,32 @@ const Pango = imports.gi.Pango;
 const PangoCairo = imports.gi.PangoCairo;
 
 var PALETTE = {
-    // harmonized with settings: color-background/surface/surface-high/text/text-variant/primary/secondary/tertiary/cyan/error
-    background:           '#12111E',
-    surface:              '#1f1d30',
-    surfaceHigh:          '#2e2c45',
-    surfaceLow:           '#181622',
-    surfaceHighest:       '#3b3854',
-    text:                 '#ece6ff',
-    textVariant:          '#c9c0e8',
-    outline:              '#8f8aa0',
-    outlineVariant:       '#3e3b54',
-    primary:              '#8b5cf6',
+    // Material 3 Expressive, dark scheme with a cool violet tint.
+    // Harmonized with settings: color-background/surface/surface-high/text/
+    // text-variant/primary/secondary/tertiary/cyan/error.
+    background:           '#121018',
+    surface:              '#1f1b29',
+    surfaceHigh:          '#2e2940',
+    surfaceLow:           '#18141f',
+    surfaceHighest:       '#3b3550',
+    text:                 '#ece6f7',
+    textVariant:          '#c9c0dd',
+    outline:              '#948da5',
+    outlineVariant:       '#453f56',
+    primary:              '#7c3aed',
     onPrimary:            '#ffffff',
-    primaryContainer:     '#7c3aed',
-    secondary:            '#4ac446',
-    secondaryContainer:   '#72fb61',
+    primaryContainer:     '#4c1d95',
+    secondary:            '#e879f9',
+    secondaryContainer:   '#701a75',
     tertiary:             '#fb923c',
-    tertiaryContainer:    '#f97316',
-    error:                '#ff5757',
+    tertiaryContainer:    '#9a3412',
+    error:                '#ff6b6b',
     cyan:                 '#22d3ee',
     purple:               '#a78bfa',
     success:              '#34d399',
 };
+// Shared Material 3 Expressive card corner radius.
+var RADIUS = 18;
 // legacy aliases for backward compatibility (old palette names)
 PALETTE.surfaceContainer = PALETTE.surface;
 PALETTE.surfaceContainerHigh = PALETTE.surfaceHigh;
@@ -76,6 +80,20 @@ function rgba(hex, alpha) {
     let c = hexToRgba(hex, alpha === undefined ? 1 : alpha);
     return 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' +
            Math.round(c[2] * 255) + ',' + c[3] + ')';
+}
+
+function mixHex(a, b, t) {
+    // Per-channel blend for animated text/icon colors.
+    t = Math.max(0, Math.min(1, t));
+    let ca = normalizeHex(a), cb = normalizeHex(b);
+    if (!ca || !cb) return t < 0.5 ? a : b;
+    let out = '#';
+    for (let i = 1; i < 7; i += 2) {
+        let av = parseInt(ca.substring(i, i + 2), 16);
+        let bv = parseInt(cb.substring(i, i + 2), 16);
+        out += ('0' + Math.round(av + (bv - av) * t).toString(16)).slice(-2);
+    }
+    return out;
 }
 
 function roundedRect(ctx, x, y, w, h, r) {
@@ -311,7 +329,7 @@ function drawRing(ctx, cx, cy, outerR, thickness, fraction, hex, trackHex) {
 function drawText(area, ctx, text, x, y, hex, opts) {
     opts = opts || {};
     let layout = area.create_pango_layout(text);
-    let family = opts.font || 'monospace';
+    let family = opts.font || 'Sans';
     let weight = opts.weight || 'normal';
     let size = opts.size || 10;
     let desc = Pango.font_description_from_string(family + ' ' + weight + ' ' + size + 'px');

@@ -5,14 +5,9 @@ const Draw = require('./lib/draw');
 // Expects the host to provide: this.applet, this._drawText, this._measureText.
 var OverviewPage = {
     _paintOverview(ctx, area, W, H, skipHeader) {
-        let applet = this.applet;
-
-        let hg = this._headerGeom || { m: 14, gap: 10, h: 24 };
+        let hg = this._headerGeom || { m: 12, gap: 8, h: 36 };
         let m = hg.m, gap = hg.gap, headerH = hg.h, tempsH = 34;
-        let hasTemps = !!applet.showTemps;
-        let effTempsH = hasTemps ? tempsH : 0;
-        let gaps = hasTemps ? 3 : 2;
-        let rowsH = H - (2 * m + headerH + effTempsH + gaps * gap);
+        let rowsH = H - (2 * m + headerH + tempsH + 3 * gap);
         // guard against tiny/negative sizes when popup is very small
         if (rowsH < 40) rowsH = 40;
         let row1H = Math.round(rowsH * 0.58);
@@ -26,34 +21,29 @@ var OverviewPage = {
             this._drawHeader(ctx, area, W, m, headerH);
         y += headerH + gap;
 
-        if (applet.showCpu)
-            this._drawCpuPanel(ctx, area, m, y, colW, row1H);
-        if (applet.showMemory)
-            this._drawMemPanel(ctx, area, m + colW + gap, y, colW, row1H);
+        this._drawCpuPanel(ctx, area, m, y, colW, row1H);
+        this._drawMemPanel(ctx, area, m + colW + gap, y, colW, row1H);
         y += row1H + gap;
 
-        if (applet.showNetwork)
-            this._drawNetPanel(ctx, area, m, y, colW, row2H);
-        if (applet.showDisk)
-            this._drawDiskPanel(ctx, area, m + colW + gap, y, colW, row2H);
+        this._drawNetPanel(ctx, area, m, y, colW, row2H);
+        this._drawDiskPanel(ctx, area, m + colW + gap, y, colW, row2H);
         y += row2H + gap;
 
-        if (hasTemps)
-            this._drawTempsStrip(ctx, area, m, y, W - 2 * m, tempsH);
+        this._drawTempsStrip(ctx, area, m, y, W - 2 * m, tempsH);
     },
 
     _drawPanelHeader(ctx, area, x, y, w, title, rightText, rightColor) {
-        this._drawText(area, ctx, title.toUpperCase(), x + 10, y + 3, Draw.PALETTE.textVariant,
-            { size: 8.5, weight: 'bold' });
+        this._drawText(area, ctx, title, x + 10, y + 3, Draw.PALETTE.textVariant,
+            { size: 9.5, weight: 'bold', font: 'Sans' });
         if (rightText !== undefined && rightText !== null)
             this._drawText(area, ctx, rightText, x + w - 10, y + 2, rightColor || Draw.PALETTE.text,
-                { size: 10, weight: 'bold', align: 'right' });
+                { size: 10.5, weight: 'bold', align: 'right', font: 'Sans' });
         return 18;
     },
 
     _drawPanelHeaderMulti(ctx, area, x, y, w, title, parts) {
-        this._drawText(area, ctx, title.toUpperCase(), x + 10, y + 3, Draw.PALETTE.textVariant,
-            { size: 8.5, weight: 'bold' });
+        this._drawText(area, ctx, title, x + 10, y + 3, Draw.PALETTE.textVariant,
+            { size: 9.5, weight: 'bold', font: 'Sans' });
         if (!parts || !parts.length) return 18;
         // filter out empty parts
         parts = parts.filter(p => p && p.text);
@@ -62,7 +52,7 @@ var OverviewPage = {
         let widths = [];
         let totalW = 0;
         for (let i = 0; i < parts.length; i++) {
-            let [pw] = this._measureText(area, parts[i].text, { size: 10, weight: 'bold' });
+            let [pw] = this._measureText(area, parts[i].text, { size: 10.5, weight: 'bold', font: 'Sans' });
             widths.push(pw);
             totalW += pw;
             if (i > 0) totalW += gapPx;
@@ -70,7 +60,7 @@ var OverviewPage = {
         let curX = x + w - 10 - totalW;
         for (let i = 0; i < parts.length; i++) {
             this._drawText(area, ctx, parts[i].text, curX, y + 2, parts[i].color || Draw.PALETTE.text,
-                { size: 10, weight: 'bold' });
+                { size: 10.5, weight: 'bold', font: 'Sans' });
             curX += widths[i] + gapPx;
         }
         return 18;
@@ -78,8 +68,7 @@ var OverviewPage = {
 
     _drawCpuPanel(ctx, area, x, y, w, h) {
         let cpu = this.applet.providers.cpu;
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
-        Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, Draw.RADIUS, Draw.PALETTE.surface, 1);
 
         let pad = 10;
         let headerH = this._drawPanelHeader(ctx, area, x, y, w, 'CPU',
@@ -143,11 +132,10 @@ var OverviewPage = {
         let prov = this.applet.providers.mem;
         let d = prov.data;
         if (!d || !d.total) return;
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
-        Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, Draw.RADIUS, Draw.PALETTE.surface, 1);
 
         let pad = 10;
-        let headerH = this._drawPanelHeader(ctx, area, x, y, w, 'MEMORY',
+        let headerH = this._drawPanelHeader(ctx, area, x, y, w, 'Memory',
             Draw.formatBytes(d.total), Draw.PALETTE.secondary);
 
         let gx = x + pad;
@@ -158,7 +146,7 @@ var OverviewPage = {
 
         // stacked graph over time
         let freeVal = Math.max(0, d.total - d.used - d.cache - d.buffers);
-        let includeCache = this.applet.memoryIncludeCacheBuffers !== false; // default true
+        let includeCache = this.applet.memoryIncludeCacheBuffers === true;
         let freeInclusive = Math.max(0, d.total - d.used);
         // histories are ordered bottom->top: used, cache, buffers, free
         // use user-configurable palette entries so graph follows applet settings
@@ -225,7 +213,6 @@ var OverviewPage = {
         // only draw scrim if graph is large enough
         if (gh > legendH + 22) {
             Draw.fillRoundRect(ctx, gx + 4, gy + 4, legendW, legendH, 6, Draw.PALETTE.surface, 0.78);
-            Draw.strokeRoundRect(ctx, gx + 4, gy + 4, legendW, legendH, 6, Draw.PALETTE.outlineVariant, 0.22, 1);
         }
         for (let i = 0; i < rows.length; i++) {
             let r = rows[i];
@@ -250,7 +237,6 @@ var OverviewPage = {
             let swLabelW = 30;
             // scrim for swap strip
             Draw.fillRoundRect(ctx, gx + 4, swY - 3, gw - 8, swBarH + 6, 4, Draw.PALETTE.surface, 0.78);
-            Draw.strokeRoundRect(ctx, gx + 4, swY - 3, gw - 8, swBarH + 6, 4, Draw.PALETTE.outlineVariant, 0.22, 1);
             this._drawText(area, ctx, 'swap', gx + 8, swY, Draw.PALETTE.textVariant, { size: 7 });
             let bx = gx + 8 + swLabelW;
             let swBarW = gw - 8 - swLabelW - 36 - 10;
@@ -271,8 +257,7 @@ var OverviewPage = {
     },
 
     _drawGraphPanel(ctx, area, x, y, w, h, title, headerParts, series) {
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
-        Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, Draw.RADIUS, Draw.PALETTE.surface, 1);
 
         let pad = 10;
         let headerH = this._drawPanelHeaderMulti(ctx, area, x, y, w, title, headerParts);
@@ -301,7 +286,7 @@ var OverviewPage = {
         let up = { draw: (c, gx, gy, gw, gh) =>
             Draw.drawSparkline(c, net.upHistory, gx, gy, gw, gh, Draw.PALETTE.cyan,
                 { lineWidth: 1.5, fillAlpha: 0.15 }) };
-        this._drawGraphPanel(ctx, area, x, y, w, h, 'NETWORK', headerParts,
+        this._drawGraphPanel(ctx, area, x, y, w, h, 'Network', headerParts,
             [down, up]);
     },
 
@@ -319,26 +304,31 @@ var OverviewPage = {
         let wr = { draw: (c, gx, gy, gw, gh) =>
             Draw.drawSparkline(c, disk.writeHistory, gx, gy, gw, gh, Draw.PALETTE.secondary,
                 { lineWidth: 1.5, fillAlpha: 0.15 }) };
-        this._drawGraphPanel(ctx, area, x, y, w, h, 'DISK', headerParts,
+        this._drawGraphPanel(ctx, area, x, y, w, h, 'Disk', headerParts,
             [rd, wr]);
     },
 
     _drawTempsStrip(ctx, area, x, y, w, h) {
         let temp = this.applet.providers.temp;
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
-        Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, Draw.RADIUS, Draw.PALETTE.surface, 1);
 
-        this._drawText(area, ctx, 'TEMPS', x + 10, y + Math.round((h - 9) / 2) + 1,
-            Draw.PALETTE.textVariant, { size: 8.5, weight: 'bold' });
+        let labelS = 9.5;
+        let [, labelH] = this._measureText(area, 'Temps',
+            { size: labelS, weight: 'bold', font: 'Sans' });
+        this._drawText(area, ctx, 'Temps', x + 10, y + Math.round((h - labelH) / 2),
+            Draw.PALETTE.textVariant, { size: labelS, weight: 'bold', font: 'Sans' });
 
         let ax = x + 10 + 48;
         let sensors = temp.cpus.concat(temp.gpus);
         for (let s of sensors)
             ax = this._tempPill(ctx, area, ax, y, h, s.label, s.temp);
 
-        if (!sensors.length)
-            this._drawText(area, ctx, 'no sensors found', x + 10 + 48, y + Math.round((h - 9) / 2) + 1,
+        if (!sensors.length) {
+            let [, emptyH] = this._measureText(area, 'no sensors found', { size: 8.5 });
+            this._drawText(area, ctx, 'no sensors found', x + 10 + 48,
+                y + Math.round((h - emptyH) / 2),
                 Draw.PALETTE.outline, { size: 8.5 });
+        }
     },
 
     _tempPill(ctx, area, x, y, h, label, temp) {
@@ -346,7 +336,7 @@ var OverviewPage = {
                   : temp <= 80 ? Draw.PALETTE.tertiary
                   : Draw.PALETTE.error;
         let text = label + ' ' + temp + '°C';
-        let [tw, th] = this._measureText(area, text, { size: 9 });
+        let [tw, th] = this._measureText(area, text, { size: 9, font: 'Sans' });
         let padX = 8, dotR = 3;
         let pillW = padX + dotR * 2 + 4 + tw + padX;
         let pillH = h - 8;
@@ -358,7 +348,7 @@ var OverviewPage = {
         Draw.setSourceHex(ctx, color, 1);
         ctx.fill();
         this._drawText(area, ctx, text, x + padX + dotR * 2 + 4, cy - Math.round(th / 2),
-            color, { size: 9 });
+            color, { size: 9, font: 'Sans' });
         return x + pillW + 8;
     }
 };

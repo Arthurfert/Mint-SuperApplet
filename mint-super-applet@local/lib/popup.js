@@ -1,6 +1,7 @@
 const St = imports.gi.St;
 const GLib = imports.gi.GLib;
 const Draw = require('./lib/draw');
+const SummaryPage = require('./lib/popup-summary').SummaryPage;
 const OverviewPage = require('./lib/popup-overview').OverviewPage;
 const BatteryPage = require('./lib/popup-battery').BatteryPage;
 const MediaPage = require('./lib/popup-media').MediaPage;
@@ -45,11 +46,9 @@ var Dashboard = class Dashboard {
         this._volDrag = false;
         this._setupEdgeTracking();
 
-        // Shared top-bar geometry: the header (hostname, page dots,
-        // uptime) is identical on every page and stays static while only
-        // the body below it slides. Pages read this for their own layout
-        // so the header position can never drift out of sync.
-        this._headerGeom = { m: 14, h: 24, gap: 10 };
+        // Shared top-bar geometry: the labelled page tabs are identical on
+        // every page and stay static while only the body below them slides.
+        this._headerGeom = { m: 12, h: 36, gap: 8 };
         // Page-switch slide animation + popup-open reveal animation.
         // Durations in ms; tuned to feel snappy without getting in the way.
         this._animDur = 260;
@@ -262,9 +261,19 @@ var Dashboard = class Dashboard {
         let button = 1;
         try { button = event.get_button(); } catch (e) { /* assume primary */ }
         if (button !== 1) return false;
+        let x = this._localX(event);
+        let y = this._localY(event);
+        // Tabs live above the content and take precedence over the
+        // edge strips when the pointer is inside the header.
+        if (x !== null && y !== null) {
+            let tab = this._tabHitTest(x, y);
+            if (tab !== null) {
+                this.setPage(tab);
+                return true;
+            }
+        }
         if (this._mediaPressHit(event)) return true;
         if (this.getPageCount() <= 1) return false;
-        let x = this._localX(event);
         if (x === null) return false;
         if (x < this.EDGE_ZONE) {
             this._lastZonePress = Date.now();
@@ -384,13 +393,12 @@ var Dashboard = class Dashboard {
     }
 
     _pages() {
-        // Overview is always present; battery and media pages are optional
-        // via settings.
-        let pages = [{ id: 'overview', title: 'Overview' }];
+        // Summary is the default landing page; battery and media pages are
+        // optional via settings.
+        let pages = [{ id: 'summary', title: 'Summary' }, { id: 'overview', title: 'System' }];
         if (this.applet.showBatteryPage !== false)
             pages.push({ id: 'battery', title: 'Battery' });
-        if (this.applet.showMediaPage !== false)
-            pages.push({ id: 'media', title: 'Media' });
+        pages.push({ id: 'media', title: 'Media' });
         return pages;
     }
 
@@ -540,7 +548,9 @@ var Dashboard = class Dashboard {
     }
 
     _paintPageById(ctx, area, W, H, id, skipHeader) {
-        if (id === 'battery')
+        if (id === 'summary')
+            this._paintSummary(ctx, area, W, H, skipHeader);
+        else if (id === 'battery')
             this._paintBattery(ctx, area, W, H, skipHeader);
         else if (id === 'media')
             this._paintMedia(ctx, area, W, H, skipHeader);
@@ -577,7 +587,7 @@ var Dashboard = class Dashboard {
     _measureText(area, text, opts) {
         let layout = area.create_pango_layout(text);
         let desc = imports.gi.Pango.font_description_from_string(
-            (opts.font || 'monospace') + ' ' + (opts.weight || 'normal') + ' ' + (opts.size || 10) + 'px');
+            (opts.font || 'Sans') + ' ' + (opts.weight || 'normal') + ' ' + (opts.size || 10) + 'px');
         layout.set_font_description(desc);
         return layout.get_pixel_size();
     }
@@ -596,9 +606,9 @@ var Dashboard = class Dashboard {
 
         let W = this.w, H = this.h;
 
-        Draw.fillRoundRect(ctx, 0, 0, W, H, 16, Draw.PALETTE.background, 0.94);
+        Draw.fillRoundRect(ctx, 0, 0, W, H, 20, Draw.PALETTE.background, 1);
 
-        let hg = this._headerGeom || { m: 14, gap: 10, h: 24 };
+        let hg = this._headerGeom || { m: 12, gap: 8, h: 36 };
 
         let now = Date.now();
         let slide = null;
@@ -606,7 +616,7 @@ var Dashboard = class Dashboard {
             let t = (now - this._anim.start) / this._animDur;
             if (t >= 1) {
                 this._anim = null;
-            } else if (t > 0 && this.getPageCount() > 1) {
+            } else if (t >= 0 && this.getPageCount() > 1) {
                 slide = {
                     eased: this._easeOutCubic(t),
                     dir: this._anim.dir,
@@ -630,8 +640,8 @@ var Dashboard = class Dashboard {
         if (slide) {
             // The top bar is identical on every page, so it is drawn once
             // and stays put (pageIndex already points at the target, hence
-            // the dots); only the bodies below it glide. Old body exits
-            // toward the swipe direction, new body enters from the
+            // the active tab); only the bodies below it glide. Old body
+            // exits toward the swipe direction, new body enters from the
             // opposite edge: next (dir +1) glides leftwards.
             this._drawHeader(ctx, area, W, hg.m, hg.h);
 
@@ -640,7 +650,7 @@ var Dashboard = class Dashboard {
             let bodyTop = hg.m + hg.h + 4;
             ctx.save();
             try {
-                Draw.roundedRect(ctx, 0, 0, W, H, 16);
+                Draw.roundedRect(ctx, 0, 0, W, H, 20);
                 ctx.clip();
                 ctx.rectangle(0, bodyTop, W, H - bodyTop);
                 ctx.clip();
@@ -671,7 +681,7 @@ var Dashboard = class Dashboard {
             // card so content never spills over the rounded corners.
             ctx.save();
             try {
-                Draw.roundedRect(ctx, 0, 0, W, H, 16);
+                Draw.roundedRect(ctx, 0, 0, W, H, 20);
                 ctx.clip();
             } catch (e) { /* draw unclipped rather than nothing */ }
 
@@ -684,62 +694,128 @@ var Dashboard = class Dashboard {
         ctx.restore();
     }
 
-    _drawHeader(ctx, area, W, m, headerH) {
-        // Dots only, centered; shown when more than one page exists.
-        if (this.getPageCount() > 1)
-            this._drawPageDots(ctx, area, W, m + 7);
+    _tabLayout(headerH) {
+        // Uniform slots so labels never shift between pages.
+        let n = this.getPageCount();
+        if (n <= 0) return [];
+        let hg = this._headerGeom || { m: 12, h: 36 };
+        let m = hg.m;
+        let h = headerH || hg.h;
+        // Cap the slot width so two-page setups stay a compact segmented
+        // control instead of two enormous pills.
+        let tw = Math.min(132, (this.w - 2 * m) / n);
+        let startX = m + ((this.w - 2 * m) - tw * n) / 2;
+        let rects = [];
+        for (let i = 0; i < n; i++)
+            rects.push({ x: startX + i * tw, y: m, w: tw, h: h, i: i });
+        return rects;
     }
 
-    _drawPageDots(ctx, area, W, y) {
-        let n = this.getPageCount();
-        if (n <= 1) return;
-        // Stable slot layout measured with a single glyph so positions never
-        // shift depending on which dot is active.
-        let widths = [];
-        let gapPx = 6;
-        let totalW = 0;
-        for (let i = 0; i < n; i++) {
-            let [pw] = this._measureText(area, '○', { size: 9, font: 'Sans' });
-            widths.push(pw);
-            totalW += pw;
-            if (i > 0) totalW += gapPx;
+    _tabHitTest(lx, ly) {
+        for (let r of this._tabLayout()) {
+            if (lx >= r.x && lx <= r.x + r.w && ly >= r.y && ly <= r.y + r.h)
+                return r.i;
         }
-        let centers = [];
-        let curX = Math.round(W / 2 - totalW / 2);
-        for (let i = 0; i < n; i++) {
-            centers.push(curX + widths[i] / 2);
-            curX += widths[i] + gapPx;
-        }
+        return null;
+    }
 
-        // Fluid traveler: while a page-switch animation runs, glide the
-        // filled dot from the old slot to the new one with the same easing
-        // as the sliding content, over a bed of outlines.
-        let traveler = null;
+    _drawHeader(ctx, area, W, m, headerH) {
+        // Material 3 primary-style tabs: icon + label inside a pill, with
+        // the active page filled in the accent color.
+        let pages = this._pages();
+        let rects = this._tabLayout(headerH);
+        if (!rects.length) return;
+        let activeIdx = Math.max(0, Math.min(rects.length - 1, this.pageIndex));
+
+        // Fluid pill: while a page switch runs, glide the fill between the
+        // old and new tab slots instead of snapping to the target.
+        let pillX = rects[activeIdx].x;
+        let pillW = rects[activeIdx].w;
         if (this._anim && this._animDur > 0) {
-            let t = (Date.now() - this._anim.start) / this._animDur;
-            if (t >= 0 && t < 1 &&
-                this._anim.fromIdx >= 0 && this._anim.fromIdx < n &&
-                this._anim.toIdx >= 0 && this._anim.toIdx < n) {
-                let e = this._easeOutCubic(t);
-                traveler = centers[this._anim.fromIdx] +
-                    (centers[this._anim.toIdx] - centers[this._anim.fromIdx]) * e;
+            let p = (Date.now() - this._anim.start) / this._animDur;
+            if (p >= 0 && p < 1 &&
+                rects[this._anim.fromIdx] && rects[this._anim.toIdx]) {
+                let e = this._easeOutCubic(p);
+                let a = rects[this._anim.fromIdx], b = rects[this._anim.toIdx];
+                pillX = a.x + (b.x - a.x) * e;
+                pillW = a.w + (b.w - a.w) * e;
             }
         }
+        let pillCenter = pillX + pillW / 2;
+        let pillH = headerH - 4;
+        Draw.fillRoundRect(ctx, Math.round(pillX + 2), m + 2,
+            Math.round(pillW - 4), pillH, pillH / 2, Draw.PALETTE.primary, 1);
 
-        for (let i = 0; i < n; i++) {
-            let isActive = (traveler === null && i === this.pageIndex);
-            Draw.drawText(area, ctx, isActive ? '●' : '○', centers[i], y,
-                isActive ? Draw.PALETTE.text : Draw.PALETTE.outline,
-                { size: 9, font: 'Sans', align: 'center' });
+        for (let r of rects) {
+            let page = pages[r.i];
+            let active = r.i === activeIdx;
+            // Labels crossfade toward the on-primary color as the pill
+            // slides under them, so the color change is not a hard cut.
+            let cover = 1 - Math.min(1,
+                Math.abs(r.x + r.w / 2 - pillCenter) / (r.w / 2));
+            let color = Draw.mixHex(Draw.PALETTE.textVariant,
+                Draw.PALETTE.onPrimary, Math.max(0, cover));
+            let fs = r.w < 90 ? 8.5 : 9.5;
+            let label = page.title;
+            let [tw] = this._measureText(area, label,
+                { size: fs, font: 'Sans', weight: active ? 'bold' : 'normal' });
+            let iconS = 12;
+            let contentW = iconS + 5 + tw;
+            let sx = r.x + Math.round((r.w - contentW) / 2);
+            let cy = m + 2 + pillH / 2;
+            this._drawTabIcon(ctx, page.id, sx, Math.round(cy - iconS / 2), iconS, color);
+            this._drawText(area, ctx, label, sx + iconS + 5,
+                cy - Math.round(fs * 0.62), color,
+                { size: fs, font: 'Sans', weight: active ? 'bold' : 'normal' });
         }
-        if (traveler !== null) {
-            Draw.drawText(area, ctx, '●', traveler, y, Draw.PALETTE.text,
-                { size: 9, font: 'Sans', align: 'center' });
-        }
+    }
+
+    _drawTabIcon(ctx, id, x, y, s, hex) {
+        try {
+            if (id === 'summary') {
+                // Dashboard: four rounded tiles.
+                let q = (s - 2) / 2;
+                Draw.fillRoundRect(ctx, x, y, q, q, 1.5, hex, 1);
+                Draw.fillRoundRect(ctx, x + q + 2, y, q, q, 1.5, hex, 1);
+                Draw.fillRoundRect(ctx, x, y + q + 2, q, q, 1.5, hex, 1);
+                Draw.fillRoundRect(ctx, x + q + 2, y + q + 2, q, q, 1.5, hex, 1);
+            } else if (id === 'battery') {
+                // Battery outline with a level fill.
+                let bw = s * 0.76, bh = s * 0.52;
+                let by = y + (s - bh) / 2;
+                Draw.strokeRoundRect(ctx, x, by, bw, bh, 2, hex, 1, 1.4);
+                Draw.fillRoundRect(ctx, x + bw + 1, by + bh * 0.3, 1.6, bh * 0.4, 0.8, hex, 1);
+                Draw.fillRoundRect(ctx, x + 2, by + 2, (bw - 4) * 0.6, bh - 4, 1, hex, 1);
+            } else if (id === 'media') {
+                // Play badge.
+                let cx = x + s / 2, cy = y + s / 2, r = s * 0.42;
+                Draw.setSourceHex(ctx, hex, 1);
+                ctx.setLineWidth(1.3);
+                ctx.newPath();
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.stroke();
+                ctx.newPath();
+                ctx.moveTo(cx - r * 0.25, cy - r * 0.45);
+                ctx.lineTo(cx - r * 0.25, cy + r * 0.45);
+                ctx.lineTo(cx + r * 0.55, cy);
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                // System monitor: three bars.
+                let bw = Math.max(2, s * 0.18);
+                let gap = (s - 3 * bw) / 2;
+                let hs = [0.55, 0.85, 0.42];
+                for (let i = 0; i < 3; i++) {
+                    let bh = s * hs[i];
+                    Draw.fillRoundRect(ctx, x + i * (bw + gap), y + s - bh, bw, bh,
+                        bw / 2, hex, 1);
+                }
+            }
+        } catch (e) { /* icon is decorative */ }
     }
 
 };
 
 // Page content lives in dedicated modules; mix their methods in so existing
 // calls like this._paintOverview(...) / this._paintBattery(...) keep working.
-Object.assign(Dashboard.prototype, OverviewPage, BatteryPage, MediaPage);
+Object.assign(Dashboard.prototype, SummaryPage, OverviewPage, BatteryPage, MediaPage);

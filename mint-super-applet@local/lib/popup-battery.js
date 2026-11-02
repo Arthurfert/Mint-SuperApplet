@@ -127,7 +127,7 @@ var BatteryPage = {
     },
 
     _paintBattery(ctx, area, W, H, skipHeader) {
-        let hg = this._headerGeom || { m: 14, gap: 10, h: 24 };
+        let hg = this._headerGeom || { m: 12, gap: 8, h: 36 };
         let m = hg.m, gap = hg.gap, headerH = hg.h;
         // The top bar is drawn once by the Dashboard and stays static
         // while pages slide; skip it here when painting a sliding body.
@@ -146,10 +146,9 @@ var BatteryPage = {
     },
 
     _drawBatteryEmpty(ctx, area, x, y, w, h) {
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
-        Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, Draw.RADIUS, Draw.PALETTE.surface, 1);
         let cx = x + w / 2;
-        this._drawText(area, ctx, 'NO BATTERY DETECTED', cx, y + Math.round(h / 2) - 14,
+        this._drawText(area, ctx, 'No battery detected', cx, y + Math.round(h / 2) - 14,
             Draw.PALETTE.text, { size: 13, weight: 'bold', align: 'center', font: 'Sans' });
         this._drawText(area, ctx, "This device doesn't report a battery via sysfs or upower.",
             cx, y + Math.round(h / 2) + 8,
@@ -192,8 +191,7 @@ var BatteryPage = {
     // Single unified hero card: charge ring on the left, health + live
     // essentials on the right. Fills the full card height (no history chart).
     _drawBatteryHero(ctx, area, x, y, w, h, d) {
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
-        Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, Draw.RADIUS, Draw.PALETTE.surface, 1);
 
         let pad = 18;
         let pct = d.percentage;
@@ -203,12 +201,12 @@ var BatteryPage = {
         let stateColor = this._batteryStateColor(d.state, pct);
 
         // Header: title + subtitle on the left.
-        this._drawText(area, ctx, 'BATTERY', x + 10, y + 5, Draw.PALETTE.textVariant,
-            { size: 10, weight: 'bold' });
+        this._drawText(area, ctx, 'Battery', x + 10, y + 5, Draw.PALETTE.textVariant,
+            { size: 9.5, weight: 'bold', font: 'Sans' });
         let sub = this._batteryModelLine(d);
         if (sub)
             this._drawText(area, ctx, sub, x + 10, y + 20, Draw.PALETTE.textVariant,
-                { size: 9, alpha: 0.8 });
+                { size: 9, alpha: 0.8, font: 'Sans' });
 
         let top = y + 50;
         let mainH = h - 50 - pad;
@@ -229,9 +227,13 @@ var BatteryPage = {
         let ringCy = top + Math.round(mainH / 2) - 10;
         Draw.drawRing(ctx, leftCx, ringCy, ringR, ringTh, (pct || 0) / 100,
             ringColor, Draw.PALETTE.surfaceHigh);
-        this._drawText(area, ctx, this._fmtPct(pct), leftCx, ringCy - 13,
+        let pctT = this._fmtPct(pct);
+        let [, pctH] = this._measureText(area, pctT, { size: 28, weight: 'bold' });
+        let [, chargeH] = this._measureText(area, 'CHARGE', { size: 9 });
+        let pctTop = ringCy - Math.round((pctH + 2 + chargeH) / 2);
+        this._drawText(area, ctx, pctT, leftCx, pctTop,
             Draw.PALETTE.text, { size: 28, weight: 'bold', align: 'center' });
-        this._drawText(area, ctx, 'CHARGE', leftCx, ringCy + 14,
+        this._drawText(area, ctx, 'CHARGE', leftCx, pctTop + pctH + 2,
             Draw.PALETTE.textVariant, { size: 9, align: 'center' });
         let timeText = this._batteryTimeText(d);
         this._drawText(area, ctx, timeText || this._fmtWatts(d.powerW), leftCx, ringCy + ringR + 12,

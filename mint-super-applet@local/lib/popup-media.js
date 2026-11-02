@@ -47,7 +47,7 @@ var MediaPage = {
     },
 
     _paintMedia(ctx, area, W, H, skipHeader) {
-        let hg = this._headerGeom || { m: 14, gap: 10, h: 24 };
+        let hg = this._headerGeom || { m: 12, gap: 8, h: 36 };
         let m = hg.m, gap = hg.gap, headerH = hg.h;
         // The top bar is drawn once by the Dashboard and stays static
         // while pages slide; skip it here when painting a sliding body.
@@ -84,18 +84,17 @@ var MediaPage = {
     },
 
     _drawMediaHero(ctx, area, x, y, w, h, d) {
-        Draw.fillRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.surface, 1);
-        Draw.strokeRoundRect(ctx, x, y, w, h, 12, Draw.PALETTE.outlineVariant, 0.35, 1);
+        Draw.fillRoundRect(ctx, x, y, w, h, Draw.RADIUS, Draw.PALETTE.surface, 1);
 
         let pad = 16;
         let vol = this._mediaVol();
 
         // Identity line: player on the left, status on the right.
-        this._drawText(area, ctx, (d.displayName || 'Media').toUpperCase(),
-            x + 10, y + 5, Draw.PALETTE.textVariant, { size: 9, weight: 'bold' });
+        this._drawText(area, ctx, (d.displayName || 'Media'),
+            x + 10, y + 5, Draw.PALETTE.textVariant, { size: 9.5, weight: 'bold', font: 'Sans' });
         let stColor = this._mediaStatusColor(d.status);
         this._drawText(area, ctx, d.status || 'Stopped', x + w - 10, y + 4,
-            stColor, { size: 9.5, weight: 'bold', align: 'right' });
+            stColor, { size: 9.5, weight: 'bold', align: 'right', font: 'Sans' });
 
         // Right column: output + vertical volume bar. Anchored 44px from
         // the card edge so all hit rects stay clear of the 56px
@@ -173,8 +172,6 @@ var MediaPage = {
         let muteCx = volCx, muteCy = yTop + muteR;
         Draw.fillRoundRect(ctx, muteCx - muteR, muteCy - muteR, muteR * 2, muteR * 2,
             muteR, Draw.PALETTE.surfaceHigh, 1);
-        Draw.strokeRoundRect(ctx, muteCx - muteR, muteCy - muteR, muteR * 2, muteR * 2,
-            muteR, Draw.PALETTE.outlineVariant, 0.5, 1);
         this._drawSpeakerIcon(ctx, muteCx, muteCy, 6,
             vol.muted ? Draw.PALETTE.error : Draw.PALETTE.text, vol.muted);
         let barTop = muteCy + muteR + 10;
@@ -203,9 +200,9 @@ var MediaPage = {
         };
     },
 
-    _drawArtPlaceholder(ctx, x, y, s) {
-        Draw.fillRoundRect(ctx, x, y, s, s, 12, Draw.PALETTE.surfaceHigh, 1);
-        Draw.strokeRoundRect(ctx, x, y, s, s, 12, Draw.PALETTE.outlineVariant, 0.4, 1);
+    _drawArtPlaceholder(ctx, x, y, s, radius) {
+        radius = radius || 12;
+        Draw.fillRoundRect(ctx, x, y, s, s, radius, Draw.PALETTE.surfaceHigh, 1);
         // Vinyl look: outer ring + center dot.
         let cx = x + s / 2, cy = y + s / 2;
         let r = s * 0.26;
@@ -224,6 +221,9 @@ var MediaPage = {
 
     _drawSpeakerIcon(ctx, cx, cy, s, hex, muted) {
         try {
+            // Speaker body plus waves sit right of the anchor; shift left so
+            // the whole glyph is centered on its circle.
+            cx -= s * 0.22;
             Draw.setSourceHex(ctx, hex, 1);
             ctx.newPath();
             ctx.moveTo(cx - s * 0.9, cy - s * 0.45);
@@ -268,8 +268,6 @@ var MediaPage = {
             } else {
                 Draw.fillRoundRect(ctx, cx - r, cy - r, r * 2, r * 2, r,
                     Draw.PALETTE.surfaceHigh, 1);
-                Draw.strokeRoundRect(ctx, cx - r, cy - r, r * 2, r * 2, r,
-                    Draw.PALETTE.outlineVariant, 0.5, 1);
                 Draw.setSourceHex(ctx, fg, 1);
                 if (kind === 'pause') {
                     let bw = r * 0.26, bh = r * 0.7, gap = r * 0.22;
@@ -279,14 +277,17 @@ var MediaPage = {
                     ctx.fill();
                 } else {
                     let dir = (kind === 'prev') ? -1 : 1;
+                    // Nudge the bar+triangle pair so the glyph sits centered
+                    // in the circular button.
+                    let ox = -dir * r * 0.185;
                     ctx.newPath();
-                    ctx.rectangle(cx + dir * r * 0.45 - (dir > 0 ? 0 : r * 0.22),
+                    ctx.rectangle(cx + ox + dir * r * 0.45 - (dir > 0 ? 0 : r * 0.22),
                         cy - r * 0.35, r * 0.22, r * 0.7);
                     ctx.fill();
                     ctx.newPath();
-                    ctx.moveTo(cx - dir * r * 0.3, cy - r * 0.38);
-                    ctx.lineTo(cx - dir * r * 0.3, cy + r * 0.38);
-                    ctx.lineTo(cx + dir * r * 0.35, cy);
+                    ctx.moveTo(cx + ox - dir * r * 0.3, cy - r * 0.38);
+                    ctx.lineTo(cx + ox - dir * r * 0.3, cy + r * 0.38);
+                    ctx.lineTo(cx + ox + dir * r * 0.35, cy);
                     ctx.closePath();
                     ctx.fill();
                 }

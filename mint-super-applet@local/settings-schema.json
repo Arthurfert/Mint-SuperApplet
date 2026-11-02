@@ -65,47 +65,17 @@
     },
     "head-sections": {
         "type": "header",
-        "description": "Sections"
-    },
-    "show-cpu": {
-        "type": "switch",
-        "default": true,
-        "description": "Show CPU panel"
-    },
-    "show-memory": {
-        "type": "switch",
-        "default": true,
-        "description": "Show memory panel"
+        "description": "Pages & graphs"
     },
     "memory-include-cache-buffers": {
         "type": "switch",
-        "default": true,
-        "description": "Include cache and buffers in memory graph"
-    },
-    "show-network": {
-        "type": "switch",
-        "default": true,
-        "description": "Show network panel"
-    },
-    "show-disk": {
-        "type": "switch",
-        "default": true,
-        "description": "Show disk I/O panel"
-    },
-    "show-temps": {
-        "type": "switch",
-        "default": true,
-        "description": "Show temperatures strip"
+        "default": false,
+        "description": "Detailed memory graph (include cache and buffers)"
     },
     "show-battery-page": {
         "type": "switch",
         "default": true,
-        "description": "Show battery health page (switch with side arrows)"
-    },
-    "show-media-page": {
-        "type": "switch",
-        "default": true,
-        "description": "Show media controller page (switch with side arrows)"
+        "description": "Show battery health page (disable on desktops)"
     },
     "head-panel": {
         "type": "header",
@@ -137,7 +107,7 @@
     },
     "color-primary": {
         "type": "colorchooser",
-        "default": "#8b5cf6",
+        "default": "#7c3aed",
         "description": "Primary accent (CPU, disk read, memory used)"
     },
     "color-secondary": {
@@ -157,32 +127,32 @@
     },
     "color-error": {
         "type": "colorchooser",
-        "default": "#ff5757",
+        "default": "#ff6b6b",
         "description": "Critical color (high usage, hot temps)"
     },
     "color-background": {
         "type": "colorchooser",
-        "default": "#12111e",
+        "default": "#121018",
         "description": "Dashboard background"
     },
     "color-surface": {
         "type": "colorchooser",
-        "default": "#1f1d30",
+        "default": "#1f1b29",
         "description": "Panel card background"
     },
     "color-surface-high": {
         "type": "colorchooser",
-        "default": "#2e2c45",
+        "default": "#2e2940",
         "description": "Ring track / bar background"
     },
     "color-text": {
         "type": "colorchooser",
-        "default": "#ece6ff",
+        "default": "#ece6f7",
         "description": "Primary text color"
     },
     "color-text-variant": {
         "type": "colorchooser",
-        "default": "#c9c0e8",
+        "default": "#c9c0dd",
         "description": "Secondary text color"
     }
 }

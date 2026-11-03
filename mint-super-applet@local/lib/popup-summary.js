@@ -323,7 +323,14 @@ var SummaryPage = {
         if (!now) return;
 
         let first = now.add_days(-(now.get_day_of_month() - 1));
+<<<<<<< Updated upstream
         let offset = first.get_day_of_week() - 1; // GLib: Monday = 1
+=======
+        // GLib weeks start on Monday (1); Sunday is 7.
+        let weekStart = this.applet.weekStartDay === 'sunday' ? 7 : 1;
+        let offset = (first.get_day_of_week() - weekStart + 7) % 7;
+        let weekFirst = first.add_days(-offset);
+>>>>>>> Stashed changes
         let days = first.add_months(1).add_days(-1).get_day_of_month();
         let rows = Math.ceil((offset + days) / 7);
         let titleH = 22, weekdayH = 12;
@@ -336,7 +343,11 @@ var SummaryPage = {
 
         for (let i = 0; i < 7; i++) {
             let label = '';
+<<<<<<< Updated upstream
             try { label = first.add_days(i).format('%a').substring(0, 2); }
+=======
+            try { label = weekFirst.add_days(i).format('%a').substring(0, 2); }
+>>>>>>> Stashed changes
             catch (e) { label = ''; }
             this._drawText(area, ctx, label, x + p + cw * i + cw / 2,
                 y + titleH + 2, Draw.PALETTE.textVariant,

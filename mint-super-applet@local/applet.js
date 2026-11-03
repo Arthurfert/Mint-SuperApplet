@@ -30,6 +30,14 @@ class MintSuperApplet extends Applet.Applet {
         this.settings.bindProperty(Settings.BindingDirection.IN, 'popup-open-duration', 'popupOpenDuration', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'memory-include-cache-buffers', 'memoryIncludeCacheBuffers', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-battery-page', 'showBatteryPage', this._onSettingsChanged, null);
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-media-page', 'showMediaPage', this._onSettingsChanged, null);
+=======
+        this.settings.bindProperty(Settings.BindingDirection.IN, 'week-start-day', 'weekStartDay', this._onSettingsChanged, null);
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-cpu', 'panelShowCpu', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-memory', 'panelShowMemory', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-clock', 'panelShowClock', this._onSettingsChanged, null);

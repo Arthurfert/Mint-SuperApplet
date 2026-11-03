@@ -77,6 +77,19 @@
         "default": true,
         "description": "Show battery health page (disable on desktops)"
     },
+    "head-calendar": {
+        "type": "header",
+        "description": "Calendar"
+    },
+    "week-start-day": {
+        "type": "combobox",
+        "default": "monday",
+        "description": "Week starts on",
+        "options": {
+            "Monday": "monday",
+            "Sunday": "sunday"
+        }
+    },
     "head-panel": {
         "type": "header",
         "description": "Panel indicator"

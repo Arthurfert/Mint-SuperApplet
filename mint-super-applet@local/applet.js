@@ -30,14 +30,7 @@ class MintSuperApplet extends Applet.Applet {
         this.settings.bindProperty(Settings.BindingDirection.IN, 'popup-open-duration', 'popupOpenDuration', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'memory-include-cache-buffers', 'memoryIncludeCacheBuffers', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-battery-page', 'showBatteryPage', this._onSettingsChanged, null);
-<<<<<<< Updated upstream
-=======
-<<<<<<< Updated upstream
-        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-media-page', 'showMediaPage', this._onSettingsChanged, null);
-=======
         this.settings.bindProperty(Settings.BindingDirection.IN, 'week-start-day', 'weekStartDay', this._onSettingsChanged, null);
->>>>>>> Stashed changes
->>>>>>> Stashed changes
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-cpu', 'panelShowCpu', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-memory', 'panelShowMemory', this._onSettingsChanged, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'panel-show-clock', 'panelShowClock', this._onSettingsChanged, null);
@@ -61,10 +54,12 @@ class MintSuperApplet extends Applet.Applet {
             disk: new Providers.DiskProvider(),
             temp: new Providers.TempProvider(),
             battery: new Providers.BatteryProvider(),
+            gpu: new Providers.GPUProvider(),
             weather: new Providers.WeatherProvider()
         };
         this.providers.temp.onChange = () => this._repaintAll();
         this.providers.battery.onChange = () => this._repaintAll();
+        this.providers.gpu.onChange = () => this._repaintAll();
         this.providers.weather.onChange = () => this._repaintAll();
 
         this.media = new Media.MediaMonitor();
@@ -293,6 +288,8 @@ class MintSuperApplet extends Applet.Applet {
         this.providers.disk.tick();
         if (this.providers.battery)
             this.providers.battery.tick();
+        if (this.providers.gpu)
+            this.providers.gpu.tick();
         try {
             if (this.providers.weather) this.providers.weather.tick();
         } catch (e) { /* keep last weather state */ }

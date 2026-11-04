@@ -473,6 +473,104 @@ var TempProvider = class TempProvider {
     }
 };
 
+var GPUProvider = class GPUProvider {
+    constructor() {
+        this.onChange = null;
+        this._amd = this._findAmd();
+        this._nvidia = null;
+        this._nvidiaAt = 0;
+        this._nvidiaPending = false;
+        this._nvidiaFailed = false;
+    }
+
+    // Pick the AMD GPU with the most VRAM so a dedicated card wins over an
+    // integrated one.
+    _findAmd() {
+        let best = null;
+        for (let c of readDir('/sys/class/drm')) {
+            if (!/^card\d+$/.test(c)) continue;
+            let base = '/sys/class/drm/' + c + '/device';
+            if (_parseIntFile(base + '/gpu_busy_percent') === null) continue;
+            let vram = _parseIntFile(base + '/mem_info_vram_total') || 0;
+            if (!best || vram > best.vram) {
+                best = {
+                    kind: 'amd',
+                    busyPath: base + '/gpu_busy_percent',
+                    vram: vram
+                };
+            }
+        }
+        return best;
+    }
+
+    _pollNvidia() {
+        if (this._nvidiaFailed || this._nvidiaPending) return;
+        let now = Date.now();
+        if (now - this._nvidiaAt < 4000) return;
+        this._nvidiaAt = now;
+        this._nvidiaPending = true;
+        let proc = null;
+        try {
+            proc = Gio.Subprocess.new(
+                ['nvidia-smi',
+                 '--query-gpu=utilization.gpu,memory.total',
+                 '--format=csv,noheader,nounits'],
+                Gio.SubprocessFlags.STDOUT_PIPE);
+        } catch (e) {
+            this._nvidiaFailed = true;
+            this._nvidiaPending = false;
+            return;
+        }
+        proc.communicate_async(null, null, (p, res) => {
+            this._nvidiaPending = false;
+            let best = null;
+            try {
+                let r = p.communicate_finish(res);
+                if (p.get_successful() && r && r[1]) {
+                    let s = _toString(r[1]) || '';
+                    for (let line of s.split('\n')) {
+                        let parts = line.split(',').map(v => v.trim());
+                        if (parts.length < 2) continue;
+                        let util = parseInt(parts[0], 10);
+                        let mb = parseInt(parts[1], 10);
+                        if (isNaN(util) || isNaN(mb)) continue;
+                        if (!best || mb > best.mb) {
+                            best = {
+                                kind: 'nvidia',
+                                util: clamp(util, 0, 100),
+                                mb: mb,
+                                vram: mb * 1024 * 1024
+                            };
+                        }
+                    }
+                }
+            } catch (e) { /* keep the previous value */ }
+            this._nvidia = best;
+            if (this.onChange) this.onChange();
+        });
+    }
+
+    tick() {
+        this._pollNvidia();
+    }
+
+    _pick() {
+        if (this._amd && this._nvidia)
+            return this._nvidia.vram > this._amd.vram ? this._nvidia : this._amd;
+        return this._nvidia || this._amd;
+    }
+
+    get load() {
+        let g = this._pick();
+        if (!g) return null;
+        if (g.kind === 'amd') {
+            let v = _parseIntFile(g.busyPath);
+            return v === null ? null : clamp(v, 0, 100);
+        }
+        return g.util;
+    }
+};
+
 function _parseIntFile(path) {
     let v = readFile(path);
     if (!v) return null;

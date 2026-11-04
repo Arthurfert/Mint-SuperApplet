@@ -6,7 +6,7 @@ const Media = require('./lib/media');
 // Mixed into Dashboard.prototype by lib/popup.js via Object.assign.
 // Expects the host to provide: this.applet, this._drawText, this._measureText,
 // this._mediaData, this._fmtMediaTime,
-// this._drawArtPlaceholder and this._chargeColor.
+// this._drawArtPlaceholder.
 var SummaryPage = {
     _paintSummary(ctx, area, W, H, skipHeader) {
         let hg = this._headerGeom || { m: 12, gap: 8, h: 36 };
@@ -258,16 +258,22 @@ var SummaryPage = {
                 items.push({ label: 'MEM', pct: mem.usedPct || 0, color: Draw.PALETTE.cyan });
         } catch (e) { /* ignore */ }
         try {
-            let bat = this.applet.providers.battery && this.applet.providers.battery.data;
-            if (bat && bat.hasBattery) {
-                let pct = bat.percentage;
-                let known = pct !== null && pct !== undefined && isFinite(pct);
-                items.push({
-                    label: 'BAT',
-                    pct: known ? pct : 0,
-                    color: known ? this._chargeColor(pct) : Draw.PALETTE.outline,
-                    unknown: !known
-                });
+            // GPU load, or CPU temperature when no GPU load is available.
+            let gpu = this.applet.providers.gpu;
+            let load = gpu ? gpu.load : null;
+            if (load !== null && load !== undefined && isFinite(load)) {
+                items.push({ label: 'GPU', pct: load, color: Draw.PALETTE.secondary });
+            } else {
+                let t = this.applet.providers.temp.cpu;
+                if (t !== null && t !== undefined && isFinite(t))
+                    items.push({
+                        label: 'TEMP',
+                        pct: t,
+                        text: Math.round(t) + '°',
+                        color: t <= 60 ? Draw.PALETTE.cyan
+                             : t <= 80 ? Draw.PALETTE.tertiary
+                             : Draw.PALETTE.error
+                    });
             }
         } catch (e) { /* ignore */ }
         if (!items.length) {
@@ -296,7 +302,9 @@ var SummaryPage = {
             Draw.drawRing(ctx, cx, cy, d / 2, thk,
                 Math.max(0, Math.min(1, (it.pct || 0) / 100)),
                 it.color, Draw.PALETTE.surfaceHigh);
-            this._drawText(area, ctx, it.unknown ? '—' : Math.round(it.pct) + '%',
+            let valT = it.text !== undefined ? it.text
+                : (it.unknown ? '—' : Math.round(it.pct) + '%');
+            this._drawText(area, ctx, valT,
                 cx, cy - Math.round(pctS * 0.62), Draw.PALETTE.text,
                 { size: pctS, weight: 'bold', align: 'center', font: 'Sans' });
             this._drawText(area, ctx, it.label, cx, cy + d / 2 + 3,
@@ -323,14 +331,10 @@ var SummaryPage = {
         if (!now) return;
 
         let first = now.add_days(-(now.get_day_of_month() - 1));
-<<<<<<< Updated upstream
-        let offset = first.get_day_of_week() - 1; // GLib: Monday = 1
-=======
         // GLib weeks start on Monday (1); Sunday is 7.
         let weekStart = this.applet.weekStartDay === 'sunday' ? 7 : 1;
         let offset = (first.get_day_of_week() - weekStart + 7) % 7;
         let weekFirst = first.add_days(-offset);
->>>>>>> Stashed changes
         let days = first.add_months(1).add_days(-1).get_day_of_month();
         let rows = Math.ceil((offset + days) / 7);
         let titleH = 22, weekdayH = 12;
@@ -343,11 +347,7 @@ var SummaryPage = {
 
         for (let i = 0; i < 7; i++) {
             let label = '';
-<<<<<<< Updated upstream
-            try { label = first.add_days(i).format('%a').substring(0, 2); }
-=======
             try { label = weekFirst.add_days(i).format('%a').substring(0, 2); }
->>>>>>> Stashed changes
             catch (e) { label = ''; }
             this._drawText(area, ctx, label, x + p + cw * i + cw / 2,
                 y + titleH + 2, Draw.PALETTE.textVariant,

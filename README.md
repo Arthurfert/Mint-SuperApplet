@@ -25,6 +25,13 @@ It features :
 
 *This work has been inspired by some Arch Linux/Hyperland dotfiles.*
 
+## External sources
+
+The weather shown on the Summary page depends on two free services:
+
+- **Location fix**: [ipwho.is](https://ipwho.is/) : used once, from your IP address, to get city and coordinates.
+- **Forecast**: [Open-Meteo](https://api.open-meteo.com/) : current temperature, conditions and location name.
+
 ## Install
 
 ```bash
@@ -54,8 +61,10 @@ mint-super-applet@local/
 └── lib/
     ├── draw.js            # Cairo helpers + palette
     ├── providers.js       # /proc data (CPU, mem, net, disk, temps) + weather
+    ├── media.js           # media management
     ├── popup.js           # popup and pages management
     ├── popup-summary.js   # default summary page
+    ├── popup-media.js     # media player page
     ├── popup-overview.js  # system monitor page rendering
     └── popup-battery.js   # battery page rendering
 ```

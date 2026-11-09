@@ -765,9 +765,25 @@ var Dashboard = class Dashboard {
             let cy = m + 2 + pillH / 2;
             this._drawTabIcon(ctx, page.id, sx, Math.round(cy - iconS / 2), iconS, color);
             this._drawText(area, ctx, label, sx + iconS + 5,
-                cy - Math.round(fs * 0.62), color,
+                cy - this._measureTextCenter(area, label,
+                    { size: fs, weight: active ? 'bold' : 'normal' }),
+                color,
                 { size: fs, font: 'Sans', weight: active ? 'bold' : 'normal' });
         }
+    }
+
+    // Vertical offset (px) from the top of a text layout to the midpoint of
+    // its cap/ascender band. Pango layouts carry far more ascent than the
+    // visible glyphs, so centering by layout height alone pushes labels low.
+    _measureTextCenter(area, text, opts) {
+        opts = opts || {};
+        let layout = area.create_pango_layout(text);
+        layout.set_font_description(imports.gi.Pango.font_description_from_string(
+            (opts.font || 'Sans') + ' ' + (opts.weight || 'normal') + ' ' +
+            (opts.size || 10) + 'px'));
+        let [ink, logical] = layout.get_line(0).get_extents();
+        // Both rects are measured relative to the baseline.
+        return (-logical.y + ink.y / 2) / imports.gi.Pango.SCALE;
     }
 
     _drawTabIcon(ctx, id, x, y, s, hex) {

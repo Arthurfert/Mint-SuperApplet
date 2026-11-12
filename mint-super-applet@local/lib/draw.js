@@ -42,6 +42,13 @@ function hexToRgba(hex, alpha) {
     let h = hex.replace('#', '');
     if (h.length === 3)
         h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    else if (h.length === 4)
+        h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+    // #rrggbbaa: the two trailing bytes carry the alpha channel.
+    if (h.length === 8) {
+        alpha = parseInt(h.substring(6), 16) / 255;
+        h = h.substring(0, 6);
+    }
     return [
         parseInt(h.substring(0, 2), 16) / 255,
         parseInt(h.substring(2, 4), 16) / 255,
@@ -56,18 +63,25 @@ function normalizeHex(color) {
     let m;
     if ((m = color.match(/^#([0-9a-f]{3})$/i)))
         return '#' + m[1].split('').map(c => c + c).join('');
-    if ((m = color.match(/^#([0-9a-f]{6})$/i)))
+    if ((m = color.match(/^#([0-9a-f]{4})$/i)))
+        return '#' + m[1].split('').map(c => c + c).join('');
+    if ((m = color.match(/^#([0-9a-f]{6})$/i)) || (m = color.match(/^#([0-9a-f]{8})$/i)))
         return '#' + m[1];
-    if ((m = color.match(/^#([0-9a-f]{8})$/i)))
-        return '#' + m[1].substring(2);
-    if ((m = color.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i))) {
+    if ((m = color.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*[,/]\s*([0-9.]+%?))?\s*\)$/i))) {
         let c = [m[1], m[2], m[3]].map(v => {
             let n = parseFloat(v);
             n = Math.round(n > 1 ? n : n * 255);
             n = Math.max(0, Math.min(255, n));
             return ('0' + n.toString(16)).slice(-2);
         });
-        return '#' + c.join('');
+        let out = '#' + c.join('');
+        if (m[4] !== undefined) {
+            let av = m[4].endsWith('%')
+                ? Math.max(0, Math.min(100, parseFloat(m[4]))) / 100
+                : Math.max(0, Math.min(1, parseFloat(m[4])));
+            out += ('0' + Math.round(av * 255).toString(16)).slice(-2);
+        }
+        return out;
     }
     return null;
 }
@@ -83,15 +97,16 @@ function rgba(hex, alpha) {
 }
 
 function mixHex(a, b, t) {
-    // Per-channel blend for animated text/icon colors.
+    // Per-channel blend for animated text/icon colors; alpha channels blend too.
     t = Math.max(0, Math.min(1, t));
     let ca = normalizeHex(a), cb = normalizeHex(b);
     if (!ca || !cb) return t < 0.5 ? a : b;
     let out = '#';
-    for (let i = 1; i < 7; i += 2) {
-        let av = parseInt(ca.substring(i, i + 2), 16);
-        let bv = parseInt(cb.substring(i, i + 2), 16);
-        out += ('0' + Math.round(av + (bv - av) * t).toString(16)).slice(-2);
+    let c1 = hexToRgba(ca), c2 = hexToRgba(cb);
+    for (let i = 0; i < 4; i++) {
+        let v = Math.max(0, Math.min(255,
+            Math.round(c1[i] * 255 + (c2[i] * 255 - c1[i] * 255) * t)));
+        out += ('0' + v.toString(16)).slice(-2);
     }
     return out;
 }
